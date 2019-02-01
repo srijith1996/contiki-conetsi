@@ -1,15 +1,17 @@
+/*---------------------------------------------------------------------------*/
 #include "contiki.h"
 #include "contiki-net.h"
-
 #include "net/ipv6/simple-udp.h"
-
 #include "sys/log.h"
 
+#include "conetsi.h"
+/*---------------------------------------------------------------------------*/
 #define UDP_SERVER_PORT 3005
 #define UDP_CLIENT_PORT 3005
 
 static struct simple_udp_connection conetsi_conn;
 static struct uip_ipaddr_t mcast_addr;
+static int current_state;
 
 PROCESS(conetsi_server_process, "CoNetSI server");
 AUTOSTART_PROCESSES(&conetsi_server_process);
@@ -27,50 +29,66 @@ udp_rx_callback(struct simple_udp_connection *c,
 /* inclusion of a state space may make more sense */
 /* switch case can be used for all states */
 
-  if(/* receiver address is multicast conetsi */) {
-    if(/* demand advertised */) {
-      /* drop */ 
-    } else {
-      /* compute demand */
+  switch(current_state) {
+
+   case STATE_IDLE:
+    if(/* received demand adv */) {
+      /* compute necessity */
+      /* compute T_i */
+      if(/* N > N_threshold && T > T_threshold */) {
+        /* compute backoff */
+        /* wait for T_backoff */
+        /* send ack */
+        current_state = STATE_AWAITING_JOIN_REQ;
+      }
     }
- 
-    if(/* demand > threshold */) {
-      /* compute back-off and wait */
-      /* send ack */
-    } else {
-      /* drop */
-    }
-  }
-  /* check the type of conetsi message */
-  if(/*demand advertised */) {
+    break;
+
+   case STATE_DEMAND_ADVERTISED:
     if(/* received ack */) {
-      /* set demand advertisation flag to 0 */
       /* prepare and send join step 3 packet */
+      current_state = STATE_CHILD_CHOSEN;
     }
-  }
+    break;
 
-  if(/* state == awaiting ack */) {
-    if(/* received joining step 3 */) {
-      /* recalculate demand */
-      /* store parent */
-      /* mcast demand */
-    } else {
-      /* nothing */
+   case STATE_CHILD_CHOSEN:
+    if(/* received NSI */) {
+      /* call add_my_nsi() */
+      /* send_nsi() */
+      current_state = STATE_IDLE;
     }
-  }
+    break;
 
-  if(/* nsi packet received */) {
-    if(/* iamgenesis */) {
-      /* send packet to root */
-    } else {
-      /* send packet to stored parent */
+   case STATE_AWAITING_JOIN_REQ:
+    if(/* received join req */) {
+      current_state = STATE_JOINED;
+      reset_timers()
     }
+    break;
+
+   case STATE_JOINED:
+    /* do nothing, since we should have moved to
+     * STATE_DEMAND_ADVERTISED or STATE_IDLE
+     */
+    break;
+   
+   default:
+    PRINTF("Error in CoNetSI: reached an unknown state\n");
+
   }
+  
+  /* recompute timeouts */
+  reset_timers();
+
+  return;
+    
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(conetsi_server_process, ev, data)
 {
   PROCESS_BEGIN();
+
+  current_state = STATE_INIT;
 
   /* register multicast address */
   uip_ip6addr(&mcast_addr, 0xff01, 0, 0, 0, 0, 0, 0, 0x0002);
@@ -82,3 +100,4 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
 
   PROCESS_END();
 }
+/*---------------------------------------------------------------------------*/
