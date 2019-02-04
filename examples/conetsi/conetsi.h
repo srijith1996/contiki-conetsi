@@ -11,9 +11,32 @@
 #define STATE_AWAITING_JOIN_REQ 3
 #define STATE_JOINED            4
 /*---------------------------------------------------------------------------*/
+#define TYPE_DEMAND_ADVERTISEMENT 0
+#define TYPE_ACK                  1
+#define TYPE_JOIN_REQUEST         2
+#define TYPE_NSI                  3
+/*---------------------------------------------------------------------------*/
+#define THRESHOLD_TIME_USEC      50
+#define THRESHOLD_NECESSITY      50
+#define THRESHOLD_PATH_LEN        5
+
+#define MAX_PARENT_REQ            5
+/*---------------------------------------------------------------------------*/
 /* packet structs */
-struct nsi_demand {
+struct conetsi_node {
+  uip_ipaddr_t parent_node;
+  uip_ipaddr_t child_node;
+};
+
+struct conetsi_pkt {
+  uint16_t type;
+  char *data;
+};
   
+struct nsi_demand {
+  uint16_t demand;
+  uint16_t time_left;
+  uint16_t path_len;
 };
 
 struct join_request {
