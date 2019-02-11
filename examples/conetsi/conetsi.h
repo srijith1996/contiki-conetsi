@@ -36,11 +36,15 @@ struct conetsi_pkt {
 struct nsi_demand {
   uint16_t demand;
   uint16_t time_left;
-  uint16_t path_len;
+  uint16_t bytes_left;
 };
 
-struct join_request {
+#define SIZE_DA        8
+#define SIZE_ACK       2
+#define SIZE_JOIN_REQ 18
 
+struct join_request {
+  uip_ipaddr_t *chosen_child;
 };
 
 struct nsi_ack {
@@ -50,15 +54,19 @@ struct nsi_ack {
 /* functions used by processes */
 void send_nsi();
 
-void add_my_nsi(char *nsi_buf, int nsi_buf_len);
+/* Register Multicast address for CoNeStI */
+void reg_mcast_addr(const uip_ipaddr_t *ipaddr);
 
 int get_time_left(state);
 
-int adv_demand();
+/* Handshake step 1: Send multicast demand advertisement */
+int send_demand_adv();
 
-void send_ack(struct simple_udp_connection *c, int backoff_secs);
+/* Handshake step 2: Send unicast ack to parent */
+void send_ack(struct uip_ipaddr_t *parent);
 
-void send_join_req(struct simple_udp_connection *c);
+/* Handshake step 3: Send multicast join request */
+void send_join_req(struct uip_ipaddr_t *child);
 
 void reset_timers();
 /*---------------------------------------------------------------------------*/

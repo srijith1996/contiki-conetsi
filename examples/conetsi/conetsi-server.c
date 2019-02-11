@@ -10,7 +10,6 @@
 #define UDP_SERVER_PORT 3005
 #define UDP_CLIENT_PORT 3005
 
-static struct simple_udp_connection conetsi_conn;
 static struct uip_ipaddr_t mcast_addr;
 
 static int current_state;
@@ -21,10 +20,12 @@ static uint16_t backoff[MAX_PARENT_REQ];
 static uint16_t start_times[MAX_PARENT_REQ];
 static uint16_t necessity[MAX_PARENT_REQ];
 
+static struct ctimer genesis_timer;
+
 PROCESS(conetsi_server_process, "CoNetSI server");
 AUTOSTART_PROCESSES(&conetsi_server_process);
 /*---------------------------------------------------------------------------*/
-static void
+void
 udp_rx_callback(struct simple_udp_connection *c,
          const uip_ipaddr_t *sender_addr,
          uint16_t sender_port,
@@ -61,18 +62,16 @@ join_da:
         start_time[count] = clock_seconds();
         PROCESS_YIELD_UNTIL(clock_seconds() ==
             start_time[count] + backoff[count]);
-        //PROCESS_YIELD_UNTIL(etimer_expired(&backoff_timer));
 
-        /* path terminates here */
-        /* TODO: check what to do here, carefully */
         if(current_state == STATE_BACKOFF) {
+          /* path terminates here */
           if(((struct nsi_demand *)pkt->data)->path_len ==
                   (THRESHOLD_PATH_LEN - 1)) {
-            send_nsi(sender_addr);
+            send_nsi(sender_addr, NULL);
+            ctimer_restart(&genesis_timer);
             current_state = STATE_IDLE;
-            reset_genesis_timers(current_state);
           } else {
-            send_demand_ack(sender_addr);
+            send_ack(sender_addr);
             current_state = STATE_AWAITING_JOIN_REQ;
           }
         }
@@ -103,7 +102,8 @@ join_da:
 
    case STATE_CHILD_CHOSEN:
     if(pkt->type == TYPE_NSI) {
-      send_nsi(pkt);
+      send_nsi(my->parent_addr, ptr);
+      ctimer_restart(&genesis_timer);
       current_state = STATE_IDLE;
     }
     break;
@@ -116,8 +116,8 @@ join_da:
        * condition taken care of in STATE_IDLE case
        */
       if(/* timer is "about to expire" */) {
-        send_nsi(my->parent);
-        reset_gen_timer();
+        send_nsi(my->parent, NULL);
+        ctimer_restart(&genesis_timer);
         current_state = STATE_IDLE;
       } else {
         send_demand_adv();
@@ -126,22 +126,23 @@ join_da:
     }
     break;
 
-   case STATE_JOINED:
-    /* do nothing, since we should have moved to
-     * STATE_DEMAND_ADVERTISED or STATE_IDLE
-     */
-    break;
-   
    default:
-    PRINTF("Error in CoNetSI: reached an unknown state\n");
+    PRINTF("Error in CoNeStI: reached an unknown state\n");
 
   }
   
-  /* recompute timeouts */
-  reset_timers();
-
   return;
     
+}
+/*---------------------------------------------------------------------------*/
+void
+gen_timer_callback()
+{
+  /* TODO: Add logic */
+  if(current_state == STATE_IDLE) {
+    send_demand_adv();
+    current_state = STATE_DEMAND_ADVERTISED;
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(conetsi_server_process, ev, data)
@@ -152,11 +153,11 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
 
   /* register multicast address for destination advertisement */
   uip_ip6addr(&mcast_addr, 0xff01, 0, 0, 0, 0, 0, 0, 0x0002);
-  uip_ds6_maddr_add(&mcast_addr);
-
-  /* register to listen to incoming CoNetSI connections */
-  simple_udp_register(&conetsi_conn, UDP_SERVER_PORT, NULL,
-                      UDP_CLIENT_PORT, udp_rx_callback);
+  reg_mcast_addr(&mcast_addr);
+  
+  /* setup timers */
+  ctimer_set(&genesis_timer, GENESIS_TIMEOUT,
+             gen_timer_callback, NULL);
 
   PROCESS_END();
 }
