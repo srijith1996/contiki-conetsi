@@ -26,6 +26,35 @@ PROCESS(conetsi_server_process, "CoNetSI server");
 AUTOSTART_PROCESSES(&conetsi_server_process);
 /*---------------------------------------------------------------------------*/
 void
+set_backoff(struct nsi_demand *demand_pkt)
+{
+  necessity[count] = necessity(demand_pkt);
+  if(necessity[count] > THRESHOLD_NECESSITY &&
+     demand_pkt->time_left > THRESHOLD_TIME_USEC) {
+
+    /* compute backoff */
+    backoff[count] = get_backoff(necessity[count], time_left);
+
+    /* wait for T_backoff */
+    current_state = STATE_BACKOFF;
+    start_time[count] = clock_seconds();
+    PROCESS_YIELD_UNTIL(clock_seconds() == start_time[count] + backoff[count]);
+
+    if(current_state == STATE_BACKOFF) {
+      /* path terminates here */
+      if(demand_pkt->bytes_left >= MARGINAL_PKT_SIZE) {
+        send_nsi(sender_addr, NULL);
+        ctimer_restart(&genesis_timer);
+        current_state = STATE_IDLE;
+      } else {
+        send_ack(sender_addr);
+        current_state = STATE_AWAITING_JOIN_REQ;
+      }
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
+void
 udp_rx_callback(struct simple_udp_connection *c,
          const uip_ipaddr_t *sender_addr,
          uint16_t sender_port,
@@ -38,44 +67,14 @@ udp_rx_callback(struct simple_udp_connection *c,
 /* inclusion of a state space may make more sense */
 /* switch case can be used for all states */
 
-  struct conetsi_pkt *pkt = (struct conetsi *) data;
-  int n;
+  struct conetsi_pkt *pkt = (struct conetsi_pkt *) data;
 
   switch(current_state) {
 
    case STATE_IDLE:
     if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
       count = 0;
-
-join_da:
-      /* compute necessity */
-      n = necessity(pkt->data);
-      if(n > THRESHOLD_NECESSITY &&
-         ((struct nsi_demand *)pkt->data)->time_left > THRESHOLD_TIME_USEC) {
-
-        /* compute backoff */
-        //etimer_set(&backoff_timer, get_backoff(best_n, time_left));
-        backoff[count] = get_backoff(n, time_left);
-
-        /* wait for T_backoff */
-        current_state = STATE_BACKOFF;
-        start_time[count] = clock_seconds();
-        PROCESS_YIELD_UNTIL(clock_seconds() ==
-            start_time[count] + backoff[count]);
-
-        if(current_state == STATE_BACKOFF) {
-          /* path terminates here */
-          if(((struct nsi_demand *)pkt->data)->path_len ==
-                  (THRESHOLD_PATH_LEN - 1)) {
-            send_nsi(sender_addr, NULL);
-            ctimer_restart(&genesis_timer);
-            current_state = STATE_IDLE;
-          } else {
-            send_ack(sender_addr);
-            current_state = STATE_AWAITING_JOIN_REQ;
-          }
-        }
-      }
+      set_backoff(pkt->data);
     }
     break;
 
@@ -88,7 +87,7 @@ join_da:
       
     } else if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
       count++;
-      goto join_da;
+      set_backoff(pkt->data);
     }
     break;
 
@@ -101,8 +100,9 @@ join_da:
     break;
 
    case STATE_CHILD_CHOSEN:
+    /* timeout should result in sending nsi to parent */
     if(pkt->type == TYPE_NSI) {
-      send_nsi(my->parent_addr, ptr);
+      send_nsi(my->parent_addr, pkt);
       ctimer_restart(&genesis_timer);
       current_state = STATE_IDLE;
     }

@@ -19,6 +19,8 @@
 #define THRESHOLD_TIME_USEC      50
 #define THRESHOLD_NECESSITY      50
 #define THRESHOLD_PATH_LEN        5
+#define THRESHOLD_PKT_SIZE       90
+#define MARGINAL_PKT_SIZE        80
 
 #define MAX_PARENT_REQ            5
 /*---------------------------------------------------------------------------*/
@@ -52,7 +54,7 @@ struct nsi_ack {
 };
 /*---------------------------------------------------------------------------*/
 /* functions used by processes */
-void send_nsi();
+void send_nsi(const uip_ipaddr_t *addr, char *buf);
 
 /* Register Multicast address for CoNeStI */
 void reg_mcast_addr(const uip_ipaddr_t *ipaddr);
