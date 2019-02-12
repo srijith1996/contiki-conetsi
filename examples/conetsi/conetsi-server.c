@@ -15,6 +15,7 @@ static struct uip_ipaddr_t mcast_addr;
 static int current_state;
 static unsigned long start_time;
 static int count;
+static int listen_flag;
 
 static uint16_t backoff[MAX_PARENT_REQ];
 static uint16_t start_times[MAX_PARENT_REQ];
@@ -73,7 +74,12 @@ udp_rx_callback(struct simple_udp_connection *c,
 
    case STATE_IDLE:
     if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
+      /* count and listen_flag are set/reset to 0 everytime the
+       * node receives a DA in idle state
+       */
       count = 0;
+      listen_flag = 0;
+
       set_backoff(pkt->data);
     }
     break;
@@ -86,8 +92,16 @@ udp_rx_callback(struct simple_udp_connection *c,
       current_state = STATE_IDLE;
       
     } else if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
-      count++;
-      set_backoff(pkt->data);
+      /* if listen_flag = 1, the demand adv is ignored without checking
+       * the value of ++count. Only if it is zero will the count be checked
+       * and incremented
+       */
+      if(listen_flag || ++count >= MAX_PARENT_REQ) {
+        printf("Ignoring further Demand advertisements");
+        listen_flag = 1;
+      } else {
+        set_backoff(pkt->data);
+      }
     }
     break;
 
