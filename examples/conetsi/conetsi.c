@@ -4,7 +4,7 @@
 /*---------------------------------------------------------------------------*/
 char conetsi_buf[MAX_OAM_SIZE];
 
-static struct conetsi_node me;
+struct conetsi_node me;
 static struct simple_udp_connection conetsi_conn;
 static uip_ipaddr_t mcast_addr;
 /*---------------------------------------------------------------------------*/
@@ -65,11 +65,44 @@ send_join_req(const uip_ipaddr_t *child)
 }
 /*---------------------------------------------------------------------------*/
 int
-send_nsi()
+send_nsi(char *buf, int buf_len)
 {
   /* TODO: Add logic */
 }
 /*---------------------------------------------------------------------------*/
-/* TODO: add methods to store and get parent and child */
-
+void
+set_parent(struct uip_ipaddr_t *p)
+{
+  uip_ipaddr_copy(&me.parent_node, p);
+}
+/*---------------------------------------------------------------------------*/
+struct uip_ipaddr_t *
+get_parent()
+{
+  return &me.parent_node;
+}
+/*---------------------------------------------------------------------------*/
+void
+set_child(struct uip_ipaddr_t *c)
+{
+  uip_ipaddr_copy(&me.child_node, c);
+}
+/*---------------------------------------------------------------------------*/
+struct uip_ipaddr_t *
+get_child()
+{
+  return &me.child_node;
+}
+/*---------------------------------------------------------------------------*/
+int
+get_backoff(int necessity, int time_left)
+{
+  /* TODO: Add logic */
+}
+/*---------------------------------------------------------------------------*/
+int
+necessity(struct nsi_demand *demand_pkt)
+{
+  /* TODO: Add logic */
+}
 /*---------------------------------------------------------------------------*/

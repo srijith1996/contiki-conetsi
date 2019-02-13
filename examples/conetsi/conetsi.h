@@ -54,13 +54,12 @@ struct nsi_ack {
 };
 /*---------------------------------------------------------------------------*/
 /* functions used by processes */
-void send_nsi(const uip_ipaddr_t *addr, char *buf);
+void send_nsi(char *buf, int buf_len);
 
 /* Register Multicast address for CoNeStI */
 void reg_mcast_addr(const uip_ipaddr_t *ipaddr);
 
-int get_time_left(state);
-
+/* Control message functions */
 /* Handshake step 1: Send multicast demand advertisement */
 int send_demand_adv();
 
@@ -71,6 +70,13 @@ void send_ack(struct uip_ipaddr_t *parent);
 void send_join_req(struct uip_ipaddr_t *child);
 
 void reset_timers();
+
+int get_time_left(state);
+
+/* Get backoff time and necessity factor */
+int get_backoff(int necessity, int time_left);
+int necessity(struct nsi_demand *demand_pkt);
+
 /*---------------------------------------------------------------------------*/
 #endif /* _CONETSI_H_ */
 /*---------------------------------------------------------------------------*/

@@ -44,7 +44,7 @@ goto_backoff(struct nsi_demand *demand_pkt)
     if(current_state == STATE_BACKOFF) {
       /* path terminates here */
       if(demand_pkt->bytes_left >= MARGINAL_PKT_SIZE) {
-        send_nsi(sender_addr, NULL);
+        send_nsi(NULL, 0);
         ctimer_restart(&genesis_timer);
         current_state = STATE_IDLE;
       } else {
@@ -108,6 +108,7 @@ udp_rx_callback(struct simple_udp_connection *c,
    case STATE_DEMAND_ADVERTISED:
     if(pkt->type == TYPE_ACK) {
       /* prepare and send join step 3 packet */
+      set_child(sender_addr);
       send_join_req(sender_addr);
       current_state = STATE_CHILD_CHOSEN;
     }
@@ -116,7 +117,7 @@ udp_rx_callback(struct simple_udp_connection *c,
    case STATE_CHILD_CHOSEN:
     /* timeout should result in sending nsi to parent */
     if(pkt->type == TYPE_NSI) {
-      send_nsi(my->parent_addr, pkt);
+      send_nsi(pkt->data, datalen-2);
       ctimer_restart(&genesis_timer);
       current_state = STATE_IDLE;
     }
@@ -124,13 +125,13 @@ udp_rx_callback(struct simple_udp_connection *c,
 
    case STATE_AWAITING_JOIN_REQ:
     if(pkt->type == TYPE_JOIN_REQUEST) {
-      uip_ipaddr_copy(&my->parent_node, sender_addr);
+      set_parent(sender_addr);
 
       /* path length will not run out here due to additional
        * condition taken care of in STATE_IDLE case
        */
       if(/* timer is "about to expire" */) {
-        send_nsi(my->parent, NULL);
+        send_nsi(NULL, 0);
         ctimer_restart(&genesis_timer);
         current_state = STATE_IDLE;
       } else {
@@ -144,9 +145,7 @@ udp_rx_callback(struct simple_udp_connection *c,
     PRINTF("Error in CoNeStI: reached an unknown state\n");
 
   }
-  
   return;
-    
 }
 /*---------------------------------------------------------------------------*/
 void
