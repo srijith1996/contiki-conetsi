@@ -27,9 +27,25 @@ register_oam(int oam_id, void (* value_callback) (struct oam_val *))
 void
 unregister_oam(int oam_id, void (* value_callback) (struct oam_val *))
 {
-  /* TODO: add logic */
-  
-  count--;
+  for(i = 0; i < count; i++) {
+    if(collect_array[i].id == oam_id) {
+
+      if(i == (count - 1)){
+        count--;
+        break;
+      }
+
+      /* copy last element to this location */
+      collect_array[i].id = collect_array[count - 1].id;
+      collect_array[i].get_val = collect_array[count - 1].get_val;
+      collect_array[i].timeout = collect_array[count - 1].timeout;
+      collect_array[i].priority = collect_array[count - 1].priority;
+      collect_array[i].data = collect_array[count - 1].data;
+
+      count--;
+      break;
+    }
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(oam_collect_process, ev, data)

@@ -172,6 +172,21 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
   ctimer_set(&genesis_timer, GENESIS_TIMEOUT,
              gen_timer_callback, NULL);
 
+  while(1) {
+    PROCESS_YEILD();
+
+    /* OAM process will wake us up when it is relevant to
+     * send OAM data
+     */
+    if(ev == genesis_event) {
+      /* TODO: Add logic */
+
+      if(current_state == STATE_IDLE) {
+        
+      }
+    }
+  }
+
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
