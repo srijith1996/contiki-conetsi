@@ -27,7 +27,7 @@ PROCESS(conetsi_server_process, "CoNetSI server");
 AUTOSTART_PROCESSES(&conetsi_server_process);
 /*---------------------------------------------------------------------------*/
 void
-set_backoff(struct nsi_demand *demand_pkt)
+goto_backoff(struct nsi_demand *demand_pkt)
 {
   necessity[count] = necessity(demand_pkt);
   if(necessity[count] > THRESHOLD_NECESSITY &&
@@ -80,7 +80,7 @@ udp_rx_callback(struct simple_udp_connection *c,
       count = 0;
       listen_flag = 0;
 
-      set_backoff(pkt->data);
+      goto_backoff(pkt->data);
     }
     break;
 
@@ -100,7 +100,7 @@ udp_rx_callback(struct simple_udp_connection *c,
         printf("Ignoring further Demand advertisements");
         listen_flag = 1;
       } else {
-        set_backoff(pkt->data);
+        goto_backoff(pkt->data);
       }
     }
     break;
