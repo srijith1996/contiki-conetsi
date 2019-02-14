@@ -10,7 +10,18 @@ static struct oam_val return_val;
 static int count, i;
 static struct etimer poll_timer;
 
+extern process_event_t genesis_event;
+
 PROCESS(oam_collect_process, "OAM Process");
+/*---------------------------------------------------------------------------*/
+static int
+demand()
+{
+  int demand = oam_buf_state.bytes / oam_buf_state.exp_time;
+  demand = oam_buf_state.priority * demand;
+
+  return demand;
+}
 /*---------------------------------------------------------------------------*/
 void
 register_oam(int oam_id, void (* value_callback) (struct oam_val *))
@@ -94,6 +105,10 @@ PROCESS_THREAD(oam_collect_process, ev, data)
           oam_buf_state.priority = modules[i].priority;
         }
       }
+    }
+
+    if(demand() > DEMAND_THRESHOLD) {
+      process_poll(&conetsi_server_process, genesis_event, &oam_buf_state);
     }
   }
   PROCESS_END();
