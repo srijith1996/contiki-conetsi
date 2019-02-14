@@ -203,9 +203,9 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
   PROCESS_BEGIN();
 
   current_state = STATE_IDLE;
+  genesis_event = process_alloc_event();
 
   /* register multicast address for destination advertisement */
-  uip_ip6addr(&mcast_addr, 0xff01, 0, 0, 0, 0, 0, 0, 0x0002);
   reg_mcast_addr(&mcast_addr);
   
   /* setup timers */

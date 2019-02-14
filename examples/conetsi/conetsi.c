@@ -9,10 +9,10 @@ static struct simple_udp_connection conetsi_conn;
 static uip_ipaddr_t mcast_addr;
 /*---------------------------------------------------------------------------*/
 int
-reg_mcast_addr(const uip_ipaddr_t *ipaddr)
+reg_mcast_addr()
 {
-  uip_ipaddr_copy(&mcast_addr, ipaddr);
-  uip_ds6_maddr_add(ipaddr);
+  uip_ip6addr(&mcast_addr, 0xff01, 0, 0, 0, 0, 0, 0, 0x0002);
+  uip_ds6_maddr_add(&mcast_addr);
 
   /* register to listen to incoming CoNetSI connections */
   simple_udp_register(&conetsi_conn, UDP_SERVER_PORT, NULL,
