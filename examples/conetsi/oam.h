@@ -14,7 +14,7 @@ struct oam_val {
   void *data;
 };
 /*---------------------------------------------------------------------------*/
-struct oam_entry {
+struct oam_module {
   uint16_t id;
   uint16_t timeout;
   uint16_t priority;
@@ -22,4 +22,13 @@ struct oam_entry {
   void (* get_val) (struct oam_val *)
   void *data;
 };
+/*---------------------------------------------------------------------------*/
+/* functions for registering and unregistering */
+void register_oam(int oam_id, void (* value_callback) (struct oam_val *),
+                  void (* reset_callback) (void),
+                  void* (* get_conf_callback) (void),
+                  void (* set_conf_callback) (void *),
+                  int (* start_callback) (void), int (* stop_callback) (void));
+
+void unregister_oam(int oam_id);
 /*---------------------------------------------------------------------------*/

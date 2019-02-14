@@ -4,8 +4,8 @@
 #include "oam.h"
 /*---------------------------------------------------------------------------*/
 struct oam_stats oam_buf_state;
+struct oam_module modules[MAX_OAM_ENTRIES];
 
-struct oam_entry collect_array[MAX_OAM_ENTRIES];
 static struct oam_val return_val;
 static int count, i;
 static struct etimer poll_timer;
@@ -15,20 +15,22 @@ PROCESS(oam_collect_process, "OAM Process");
 void
 register_oam(int oam_id, void (* value_callback) (struct oam_val *))
 {
-  collect_array[count].id = oam_id;
-  collect_array[count].get_val = value_callback;
-  collect_array[count].timeout = 65535;
-  collect_array[count].priority = 65535;
-  collect_array[count].data = NULL;
+  modules[count].id = oam_id;
+
+  modules[count].get_val = value_callback;
+ 
+  modules[count].timeout = 65535;
+  modules[count].priority = 65535;
+  modules[count].data = NULL;
   
   count++;
 }
 /*---------------------------------------------------------------------------*/
 void
-unregister_oam(int oam_id, void (* value_callback) (struct oam_val *))
+unregister_oam(int oam_id)
 {
   for(i = 0; i < count; i++) {
-    if(collect_array[i].id == oam_id) {
+    if(modules[i].id == oam_id) {
 
       if(i == (count - 1)){
         count--;
@@ -36,11 +38,13 @@ unregister_oam(int oam_id, void (* value_callback) (struct oam_val *))
       }
 
       /* copy last element to this location */
-      collect_array[i].id = collect_array[count - 1].id;
-      collect_array[i].get_val = collect_array[count - 1].get_val;
-      collect_array[i].timeout = collect_array[count - 1].timeout;
-      collect_array[i].priority = collect_array[count - 1].priority;
-      collect_array[i].data = collect_array[count - 1].data;
+      modules[i].id = modules[count - 1].id;
+
+      modules[i].get_val = modules[count - 1].get_val;
+
+      modules[i].timeout = modules[count - 1].timeout;
+      modules[i].priority = modules[count - 1].priority;
+      modules[i].data = modules[count - 1].data;
 
       count--;
       break;
@@ -52,8 +56,9 @@ PROCESS_THREAD(oam_collect_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  oam_stats.bytes = 0;
-  oam_stats.exp_time = 65535;
+  oam_buf_state.bytes = 0;
+  oam_buf_state.exp_time = 65535;
+  oam_buf_state.priority = 65535;
 
   /* For now register all processes here */
   /* e.g.: register_oam(bat_volt_id, &get_bat_volt) */
@@ -62,27 +67,32 @@ PROCESS_THREAD(oam_collect_process, ev, data)
     etimer_set(&poll_timer, OAM_POLL_INTERVAL);
     PROCESS_YIELD_UNTIL(etimer_expired(&poll_timer));
 
-    oam_stats.exp_time = (oam_stats.exp_time > OAM_POLL_INTERVAL)?
-                         (oam_stats.exp_time - OAM_POLL_INTERVAL): 0;
+    /* update the global expiration time */
+    oam_buf_state.exp_time = (oam_buf_state.exp_time > OAM_POLL_INTERVAL)?
+                         (oam_buf_state.exp_time - OAM_POLL_INTERVAL): 0;
 
     /* poll processes */
     for(i = 0; i < count; i++) {
       /* ignore if info is updated */
-      if(collect_array[i].data != NULL) {
+      if(modules[i].data != NULL) {
         break;
       }
 
-      collect_array[i].get_val(&return_val);
-      collect_array[i].timeout = return_val.timeout;
-      collect_array[i].priority = return_val.priority;
-      collect_array[i].data = return_val.data;
+      /* get the current function's value */
+      modules[i].get_val(&return_val);
+      modules[i].timeout = return_val.timeout;
+      modules[i].data = return_val.data;
 
-      oam_stats.bytes += OAM_ENTRY_BASE_SIZE;
-      oam_stats.bytes += collect_array[i].bytes;
+      oam_buf_state.bytes += OAM_ENTRY_BASE_SIZE;
+      oam_buf_state.bytes += modules[i].bytes;
 
-      /* update the global expiration time */
-      if(oam_stats.exp_time < collect_array[i].timeout) {
-        oam_stats.exp_time = collect_array[i].timeout;
+        if(oam_buf_state.exp_time < modules[i].timeout) {
+          /* update the global expiration time */
+          oam_buf_state.exp_time = modules[i].timeout;
+        }
+        if(oam_buf_state.priority > modules[i].priority) {
+          oam_buf_state.priority = modules[i].priority;
+        }
       }
     }
   }
