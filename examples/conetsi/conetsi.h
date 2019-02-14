@@ -30,6 +30,14 @@ struct conetsi_node {
   uip_ipaddr_t child_node;
 };
 
+struct parent_details {
+  uip_ipaddr_t addr;
+  uint16_t necessity;
+  uint32_t start_time;
+  uint16_t backoff;
+  uint8_t flagged;
+};
+
 struct conetsi_pkt {
   uint16_t type;
   char *data;

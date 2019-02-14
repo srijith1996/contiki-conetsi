@@ -10,38 +10,75 @@
 #define UDP_SERVER_PORT 3005
 #define UDP_CLIENT_PORT 3005
 
-static struct uip_ipaddr_t mcast_addr;
-
 static int current_state;
 static unsigned long start_time;
-static int count;
 static int listen_flag;
+static uint8_t yield;
+static uint8_t all_flagged;
 
-static uint16_t backoff[MAX_PARENT_REQ];
-static uint16_t start_times[MAX_PARENT_REQ];
-static uint16_t necessity[MAX_PARENT_REQ];
+static struct parent_details parent[MAX_PARENT_REQ];
+static int count;
 
 static struct ctimer genesis_timer;
+process_event_t genesis_event;
 
 PROCESS(conetsi_server_process, "CoNetSI server");
 AUTOSTART_PROCESSES(&conetsi_server_process);
 /*---------------------------------------------------------------------------*/
-void
-goto_backoff(struct nsi_demand *demand_pkt)
+static void
+add_parent(uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
 {
-  necessity[count] = necessity(demand_pkt);
-  if(necessity[count] > THRESHOLD_NECESSITY &&
+  parent[count].necessity = necessity(demand_pkt);
+  if(parent[count].necessity > THRESHOLD_NECESSITY &&
      demand_pkt->time_left > THRESHOLD_TIME_USEC) {
 
-    /* compute backoff */
-    backoff[count] = get_backoff(necessity[count], time_left);
-
-    /* wait for T_backoff */
     current_state = STATE_BACKOFF;
-    start_time[count] = clock_seconds();
-    PROCESS_YIELD_UNTIL(clock_seconds() == start_time[count] + backoff[count]);
 
-    if(current_state == STATE_BACKOFF) {
+    /* store essential information */
+    uip_ipaddr_copy(&parent[count].addr, sender);
+    parent[count].start_time = clock_seconds();
+    parent[count].backoff = get_backoff(parent[count].necessity,
+                                        demand_pkt->time_left);
+    parent[count].flagged = 0;
+
+    /* increment counter before yielding */
+    count++;
+  }
+}
+/*---------------------------------------------------------------------------*/
+/* This function is called by the node when in idle state,
+ * on receiving a demand advertisement. The same thread, executes a
+ * continuous while loop which exits only when chosen by one of the
+ * added parents, or when rejected by all parents
+ */
+static void
+goto_backoff()
+{
+  yield = 0;
+  while(!yield) {
+    /* recompute yield */
+    yield = 1;
+    all_flagged = 1;
+
+    for(i = 0; i < count; i++) {
+      yield &= (parent[i].flagged ||
+                (clock_seconds() < parent[i].start_time + parent[i].backoff))
+      all_flagged &= parent[i].flagged;
+      if(!yield) {
+        break;
+      }
+    }
+
+    /* If I wasn't chosen by anyone -- break */
+    if(all_flagged) {
+      current_state = STATE_IDLE;
+      break;
+    }
+
+    if(!yield && current_state == STATE_BACKOFF) {
+      /* now i indexes the first entry which expired */
+      set_parent(parent[i].addr)
+
       /* path terminates here */
       if(demand_pkt->bytes_left >= MARGINAL_PKT_SIZE) {
         send_nsi(NULL, 0);
@@ -51,6 +88,7 @@ goto_backoff(struct nsi_demand *demand_pkt)
         send_ack(sender_addr);
         current_state = STATE_AWAITING_JOIN_REQ;
       }
+      count = 0;
     }
   }
 }
@@ -80,27 +118,29 @@ udp_rx_callback(struct simple_udp_connection *c,
       count = 0;
       listen_flag = 0;
 
-      goto_backoff(pkt->data);
+      add_parent(sender_addr, pkt->data);
+      goto_backoff();
     }
     break;
 
    case STATE_BACKOFF:
-    if(pkt->type == TYPE_JOIN_REQUEST &&
-       uip_ipaddr_cmp(&((struct join_request *)pkt->data)->sender_addr,
-                      &my->parent_node)) {
-      /* reset back to idle state, since I am not chosen */
-      current_state = STATE_IDLE;
-      
+    if(pkt->type == TYPE_JOIN_REQUEST) {
+      for(i = 0; i < count; i++) {
+        if(uip_ipaddr_cmp(&((struct join_request *)pkt->data)->sender_addr,
+                          &parent[i].addr)) {
+          parent[i].flagged = 1;
+          break;
+        }
+      }
     } else if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
       /* if listen_flag = 1, the demand adv is ignored without checking
-       * the value of ++count. Only if it is zero will the count be checked
-       * and incremented
+       * the value of count. Only if it is zero will the count be checked
        */
-      if(listen_flag || ++count >= MAX_PARENT_REQ) {
+      if(listen_flag || count >= MAX_PARENT_REQ) {
         printf("Ignoring further Demand advertisements");
         listen_flag = 1;
       } else {
-        goto_backoff(pkt->data);
+        add_parent(sender_addr, pkt->data);
       }
     }
     break;
