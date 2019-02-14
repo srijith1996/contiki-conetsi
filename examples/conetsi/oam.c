@@ -1,4 +1,5 @@
 /*---------------------------------------------------------------------------*/
+#include <math.h>
 #include "contiki.h"
 #include "contiki-net.h"
 #include "oam.h"
@@ -13,6 +14,34 @@ static struct etimer poll_timer;
 extern process_event_t genesis_event;
 
 PROCESS(oam_collect_process, "OAM Process");
+/*---------------------------------------------------------------------------*/
+static int
+priority(int id) {
+  switch(id) {
+    case BAT_VOLT_ID:        return 100;
+    case FRAME_DROP_RATE_ID: return  10;
+    case ETX_ID:             return  20;
+    case QUEUE_STATE_ID:     return   5;
+    default:                 return  -1;
+  }
+}
+/*---------------------------------------------------------------------------*/
+static float
+global_priority(int id, int priority)
+{
+  /* scale the priority based on configured priority */
+  /* using the Rayleigh function to scale */
+  float sigma, x, ret;
+  sigma = LOWEST_PRIORITY - HIGHEST_PRIORITY;
+  x = priority(id) - (LOWEST_PRIORITY - HIGHEST_PRIORITY)/2;
+
+  ret = x / (sigma * sigma);
+  ret = ret * exp(- x*x / (sigma*sigma));
+  ret = ret + 1;
+
+  ret = ret * priority;
+  return ret;
+}
 /*---------------------------------------------------------------------------*/
 static int
 demand()
@@ -94,7 +123,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
 
   while(1) {
     etimer_set(&poll_timer, OAM_POLL_INTERVAL);
-    PROCESS_YIELD_UNTIL(etimer_expired(&poll_timer));
+    PROCESS_YIELD_UNTIL(count != 0 && etimer_expired(&poll_timer));
 
     /* update the global expiration time */
     oam_buf_state.exp_time = (oam_buf_state.exp_time > OAM_POLL_INTERVAL)?
@@ -109,11 +138,16 @@ PROCESS_THREAD(oam_collect_process, ev, data)
 
       /* get the current function's value */
       modules[i].get_val(&return_val);
-      modules[i].timeout = return_val.timeout;
-      modules[i].data = return_val.data;
 
-      oam_buf_state.bytes += OAM_ENTRY_BASE_SIZE;
-      oam_buf_state.bytes += modules[i].bytes;
+      /* consider entry only if the priority is high enough */
+      if((modules[i].priority =
+          global_priority(modules[i].id, return_val.priority))
+            < PRIORITY_THRESHOLD) {
+        modules[i].timeout = return_val.timeout;
+        modules[i].data = return_val.data;
+
+        oam_buf_state.bytes += OAM_ENTRY_BASE_SIZE;
+        oam_buf_state.bytes += modules[i].bytes;
 
         if(oam_buf_state.exp_time < modules[i].timeout) {
           /* update the global expiration time */

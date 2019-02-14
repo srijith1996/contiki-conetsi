@@ -1,10 +1,18 @@
 /*---------------------------------------------------------------------------*/
+#define PRIORITY_THRESHOLD 30
+/*---------------------------------------------------------------------------*/
 #define OAM_POLL_INTERVAL   (CLOCK_SECOND * 2)
-#define OAM_ENTRY_BASE_SIZE 8
+/*---------------------------------------------------------------------------*/
+/* configure module ID here */
+#define BAT_VOLT_ID          0
+#define FRAME_DROP_RATE_ID   1
+#define ETX_ID               2
+#define QUEUE_STATE_ID       3
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint16_t bytes;
   uint16_t exp_time;
+  float priority;
 };
 /*---------------------------------------------------------------------------*/
 struct oam_val {
