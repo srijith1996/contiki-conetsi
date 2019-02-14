@@ -17,11 +17,19 @@ struct oam_val {
 struct oam_module {
   uint16_t id;
   uint16_t timeout;
-  uint16_t priority;
   uint16_t bytes;
-  void (* get_val) (struct oam_val *)
+  float priority;
+  
+  void (* get_val) (struct oam_val *);
+  void (* reset) (void);
+  (void *) (* get_config) (void);
+  void (* set_config) (void *);
+  int (* start) (void);
+  int (* stop) (void);
+
   void *data;
 };
+#define OAM_ENTRY_BASE_SIZE 4
 /*---------------------------------------------------------------------------*/
 /* functions for registering and unregistering */
 void register_oam(int oam_id, void (* value_callback) (struct oam_val *),

@@ -24,12 +24,24 @@ demand()
 }
 /*---------------------------------------------------------------------------*/
 void
-register_oam(int oam_id, void (* value_callback) (struct oam_val *))
+register_oam(int oam_id,
+             void (* value_callback) (struct oam_val *),
+             void (* reset_callback) (void),
+             void* (* get_conf_callback) (void),
+             void (* set_conf_callback) (void *),
+             int (* start_callback) (void),
+             int (* stop_callback) (void))
 {
   modules[count].id = oam_id;
 
   modules[count].get_val = value_callback;
- 
+  modules[count].reset = reset_callback;
+  modules[count].get_config = get_conf_callback;
+  modules[count].set_config = set_conf_callback;
+  modules[count].start = start_callback;
+  modules[count].stop = stop_callback;
+
+  modules[count].bytes = 0;
   modules[count].timeout = 65535;
   modules[count].priority = 65535;
   modules[count].data = NULL;
@@ -52,7 +64,13 @@ unregister_oam(int oam_id)
       modules[i].id = modules[count - 1].id;
 
       modules[i].get_val = modules[count - 1].get_val;
+      modules[i].reset = modules[count - 1].reset;
+      modules[i].get_config = modules[count - 1].get_config;
+      modules[i].set_config = modules[count - 1].set_config;
+      modules[i].start = modules[count - 1].start;
+      modules[i].stop = modules[count - 1].stop;
 
+      modules[i].bytes = modules[count - 1].bytes
       modules[i].timeout = modules[count - 1].timeout;
       modules[i].priority = modules[count - 1].priority;
       modules[i].data = modules[count - 1].data;
