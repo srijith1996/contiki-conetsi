@@ -1,7 +1,9 @@
 /*---------------------------------------------------------------------------*/
 #include <math.h>
+#include <stdio.h>
 #include "contiki.h"
 #include "contiki-net.h"
+
 #include "oam.h"
 /*---------------------------------------------------------------------------*/
 struct oam_stats oam_buf_state;
@@ -43,13 +45,44 @@ global_priority(int id, int priority)
   return ret;
 }
 /*---------------------------------------------------------------------------*/
-static int
+uint16_t
 demand()
 {
-  int demand = oam_buf_state.bytes / oam_buf_state.exp_time;
+  uint16_t demand = oam_buf_state.bytes / oam_buf_state.exp_time;
   demand = oam_buf_state.priority * demand;
 
   return demand;
+}
+/*---------------------------------------------------------------------------*/
+uint16_t
+get_nsi_timeout()
+{
+  return (uint16_t) oam_buf_state.exp_time;
+}
+/*---------------------------------------------------------------------------*/
+uint16_t
+get_bytes()
+{
+  return (uint16_t) oam_buf_state.bytes;
+}
+/*---------------------------------------------------------------------------*/
+int
+oam_string(char *buf)
+{
+  int ctr = 0;
+
+  sprintf(buf, "%c", (uint8_t) oam_buf_state.bytes);
+  ctr += 1;
+
+  for(i = 0; i < count; i++) {
+    sprintf((buf + ctr), "%c", (uint8_t) modules[i].id);
+    ctr += 1;
+    sprintf((buf + ctr), "%c", (uint8_t) modules[i].bytes);
+    ctr += 1;
+    memcpy((buf + ctr), &modules[i].data, modules[i].bytes);
+    ctr += modules[i].bytes;
+  }
+  return ctr;
 }
 /*---------------------------------------------------------------------------*/
 void

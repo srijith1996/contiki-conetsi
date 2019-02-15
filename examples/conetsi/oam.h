@@ -1,4 +1,7 @@
 /*---------------------------------------------------------------------------*/
+#ifndef _OAM_H_
+#define _OAM_H_
+/*---------------------------------------------------------------------------*/
 #define PRIORITY_THRESHOLD 30
 /*---------------------------------------------------------------------------*/
 #define OAM_POLL_INTERVAL   (CLOCK_SECOND * 2)
@@ -47,4 +50,10 @@ void register_oam(int oam_id, void (* value_callback) (struct oam_val *),
                   int (* start_callback) (void), int (* stop_callback) (void));
 
 void unregister_oam(int oam_id);
+
+uint16_t demand();
+uint16_t get_nsi_timeout();
+uint16_t get_bytes();
+/*---------------------------------------------------------------------------*/
+#endif /* _OAM_H_ */
 /*---------------------------------------------------------------------------*/
