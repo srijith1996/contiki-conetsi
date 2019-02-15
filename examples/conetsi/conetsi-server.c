@@ -72,11 +72,10 @@ goto_backoff()
     }
 
     if(!yield && current_state == STATE_BACKOFF) {
-      /* now i indexes the first entry which expired */
-      set_parent(parent[i].addr)
-
       /* path terminates here */
       if(demand_pkt->bytes_left >= MARGINAL_PKT_SIZE) {
+        /* now i indexes the first entry which expired */
+        set_parent(parent[i].addr);
         send_nsi(NULL, 0);
         current_state = STATE_IDLE;
       } else {
