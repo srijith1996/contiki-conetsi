@@ -1,4 +1,8 @@
 /*---------------------------------------------------------------------------*/
+#include "contiki.h"
+#include "contiki-net.h"
+#include "net/ip/uip.h"
+
 #include "conetsi.h"
 #include "oam.h"
 /*---------------------------------------------------------------------------*/
@@ -22,19 +26,15 @@ reg_mcast_addr()
 int
 send_demand_adv()
 {
-  /* TODO: These functions will be defined
-   * in the OAM process
-   */
-  struct conetsi_pkt *buf = conetsi_buf;
+  struct conetsi_pkt *buf = &conetsi_buf;
   struct nsi_demand *demand_buf = buf->data;
 
-  buf->type = TYPE_DEMAND_ADVERTISEMENT;
-  demand_buf->demand = uip_htons(get_demand());
+  /* These functions are defined in the OAM process */
+  buf->type = uip_htons(TYPE_DEMAND_ADVERTISEMENT);
+  demand_buf->demand = uip_htons(demand());
   demand_buf->time_left = uip_htons(get_nsi_timeout());
-  demand_buf->bytes_left = get_bytes();
-  /* get_bytes_left(&(demand_buf->bytes_left)); */
+  demand_buf->bytes = uip_htons(get_bytes());
 
-  demand_buf->bytes_left = uip_htons(demand_buf->bytes_left);
   simple_udp_sendto(&conetsi_conn, &buf, SIZE_DA, &mcast_addr);
 
   return 0;
@@ -43,7 +43,7 @@ send_demand_adv()
 int
 send_ack(const uip_ipaddr_t *parent)
 {
-  struct conetsi_pkt *buf = conetsi_buf;
+  struct conetsi_pkt *buf = &conetsi_buf;
   
   buf->type = TYPE_ACK;
   simple_udp_sendto(&conetsi_conn, &buf, SIZE_ACK, parent);
@@ -52,13 +52,18 @@ send_ack(const uip_ipaddr_t *parent)
 }
 /*---------------------------------------------------------------------------*/
 int
-send_join_req(const uip_ipaddr_t *child)
+send_join_req()
 {
-  struct conetsi_pkt *buf = conetsi_buf;
+  struct conetsi_pkt *buf = &conetsi_buf;
   struct join_request *req = buf->data;
 
+  if(me.child == NULL) {
+    return -1;
+  }
+
   buf->type = TYPE_JOIN_REQ;
-  uip_ipaddr_copy(&req->chosen_child, child);
+  req->time_left = get_nsi_timeout();
+  uip_ipaddr_copy(&req->chosen_child, &me.child);
 
   simple_udp_sendto(&conetsi_conn, &buf, SIZE_JOIN_REQ, &mcast_addr);
   return 0;
@@ -67,7 +72,19 @@ send_join_req(const uip_ipaddr_t *child)
 int
 send_nsi(char *buf, int buf_len)
 {
-  /* TODO: Add logic */
+  /* first byte of buf is the length */
+  int add_len;
+
+  struct conetsi_pkt *pkt = &conetsi_buf;
+
+  pkt->type = uip_htons(TYPE_NSI);
+  memcpy(pkt->data, buf, buf_len);
+  memcpy(pkt->data + buf_len, &uip_lladdr, LINKADDR_SIZE);
+  add_len = oam_string(pkt->data + buf_len + LINKADDR_SIZE);
+
+  simple_udp_sendto(&conetsi_conn, &conetsi_buf,
+                    (buf_len + add_len + LINKADDR_SIZE), &me.parent);
+  return (buf_len + add_len + LINKADDR_SIZE);
 }
 /*---------------------------------------------------------------------------*/
 void

@@ -41,7 +41,7 @@ struct parent_details {
 };
 
 struct conetsi_pkt {
-  uint16_t type;
+  uint8_t type;
   char *data;
 };
   
@@ -52,6 +52,7 @@ struct nsi_demand {
 };
 
 struct join_request {
+  uint16_t time_left;
   uip_ipaddr_t *chosen_child;
 };
 

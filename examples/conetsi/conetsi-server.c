@@ -143,7 +143,7 @@ udp_rx_callback(struct simple_udp_connection *c,
     if(pkt->type == TYPE_ACK) {
       /* prepare and send join step 3 packet */
       set_child(sender_addr);
-      send_join_req(sender_addr);
+      send_join_req();
       current_state = STATE_CHILD_CHOSEN;
     }
     break;
