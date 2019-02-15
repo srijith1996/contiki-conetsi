@@ -26,8 +26,7 @@ AUTOSTART_PROCESSES(&conetsi_server_process);
 static void
 add_parent(uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
 {
-  parent[count].necessity = necessity(demand_pkt);
-  if(parent[count].necessity > THRESHOLD_NECESSITY &&
+  if(demand_pkt->demand > THRESHOLD_DEMAND &&
      demand_pkt->time_left > THRESHOLD_TIME_USEC) {
 
     current_state = STATE_BACKOFF;
@@ -35,8 +34,7 @@ add_parent(uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
     /* store essential information */
     uip_ipaddr_copy(&parent[count].addr, sender);
     parent[count].start_time = clock_seconds();
-    parent[count].backoff = get_backoff(parent[count].necessity,
-                                        demand_pkt->time_left);
+    parent[count].backoff = get_backoff(demand(), demand_pkt->time_left);
     parent[count].flagged = 0;
 
     /* increment counter before yielding */

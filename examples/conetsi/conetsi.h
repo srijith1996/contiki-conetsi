@@ -16,11 +16,14 @@
 #define TYPE_JOIN_REQUEST         2
 #define TYPE_NSI                  3
 /*---------------------------------------------------------------------------*/
-#define THRESHOLD_TIME_USEC      50
-#define THRESHOLD_NECESSITY      50
+#define THRESHOLD_TIME_MSEC     100
+#define THRESHOLD_DEMAND         50
 #define THRESHOLD_PATH_LEN        5
 #define THRESHOLD_PKT_SIZE       90
 #define MARGINAL_PKT_SIZE        80
+
+/* purely motivated by the fact that communation bit rate is 5000kbps */
+#define BACKOFF_FACTOR          (0.1/5000)
 
 #define MAX_PARENT_REQ            5
 /*---------------------------------------------------------------------------*/
@@ -32,7 +35,6 @@ struct conetsi_node {
 
 struct parent_details {
   uip_ipaddr_t addr;
-  uint16_t necessity;
   uint32_t start_time;
   uint16_t backoff;
   uint8_t flagged;
@@ -46,20 +48,16 @@ struct conetsi_pkt {
 struct nsi_demand {
   uint16_t demand;
   uint16_t time_left;
-  uint16_t bytes_left;
+  uint16_t bytes;
 };
-
-#define SIZE_DA        8
-#define SIZE_ACK       2
-#define SIZE_JOIN_REQ 18
 
 struct join_request {
   uip_ipaddr_t *chosen_child;
 };
 
-struct nsi_ack {
-
-};
+#define SIZE_DA        8
+#define SIZE_ACK       2
+#define SIZE_JOIN_REQ 20
 /*---------------------------------------------------------------------------*/
 /* functions used by processes */
 void send_nsi(char *buf, int buf_len);
@@ -81,9 +79,8 @@ void reset_timers();
 
 int get_time_left(state);
 
-/* Get backoff time and necessity factor */
-int get_backoff(int necessity, int time_left);
-int necessity(struct nsi_demand *demand_pkt);
+/* Get backoff time and demand */
+int get_backoff(int demand, int time_left);
 
 /* Get and set parent and child */
 void set_parent(struct uip_ipaddr_t *p);

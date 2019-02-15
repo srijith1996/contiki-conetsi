@@ -94,15 +94,10 @@ get_child()
   return &me.child_node;
 }
 /*---------------------------------------------------------------------------*/
-int
-get_backoff(int necessity, int time_left)
+float
+get_backoff(int demand, int time_left)
 {
-  /* TODO: Add logic */
-}
-/*---------------------------------------------------------------------------*/
-int
-necessity(struct nsi_demand *demand_pkt)
-{
-  /* TODO: Add logic */
+  /* Strictly lesser than time left */
+  return BACKOFF_FACTOR * time_left * demand;
 }
 /*---------------------------------------------------------------------------*/
