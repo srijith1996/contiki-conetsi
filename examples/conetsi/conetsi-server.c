@@ -10,9 +10,8 @@
 #define UDP_SERVER_PORT 3005
 #define UDP_CLIENT_PORT 3005
 
-static int current_state;
-static unsigned long start_time;
-static int listen_flag;
+static uint8_t current_state;
+static uint8_t listen_flag;
 static uint8_t yield;
 static uint8_t all_flagged;
 
