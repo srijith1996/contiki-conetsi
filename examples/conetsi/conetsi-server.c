@@ -18,7 +18,6 @@ static uint8_t all_flagged;
 static struct parent_details parent[MAX_PARENT_REQ];
 static int count;
 
-static struct ctimer genesis_timer;
 process_event_t genesis_event;
 
 PROCESS(conetsi_server_process, "CoNetSI server");
@@ -81,7 +80,6 @@ goto_backoff()
       /* path terminates here */
       if(demand_pkt->bytes_left >= MARGINAL_PKT_SIZE) {
         send_nsi(NULL, 0);
-        ctimer_restart(&genesis_timer);
         current_state = STATE_IDLE;
       } else {
         send_ack(sender_addr);
@@ -157,7 +155,6 @@ udp_rx_callback(struct simple_udp_connection *c,
     /* timeout should result in sending nsi to parent */
     if(pkt->type == TYPE_NSI) {
       send_nsi(pkt->data, datalen-2);
-      ctimer_restart(&genesis_timer);
       current_state = STATE_IDLE;
     }
     break;
@@ -171,7 +168,6 @@ udp_rx_callback(struct simple_udp_connection *c,
        */
       if(/* timer is "about to expire" */) {
         send_nsi(NULL, 0);
-        ctimer_restart(&genesis_timer);
         current_state = STATE_IDLE;
       } else {
         send_demand_adv();
@@ -187,16 +183,6 @@ udp_rx_callback(struct simple_udp_connection *c,
   return;
 }
 /*---------------------------------------------------------------------------*/
-void
-gen_timer_callback()
-{
-  /* TODO: Add logic */
-  if(current_state == STATE_IDLE) {
-    send_demand_adv();
-    current_state = STATE_DEMAND_ADVERTISED;
-  }
-}
-/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(conetsi_server_process, ev, data)
 {
   PROCESS_BEGIN();
@@ -207,10 +193,6 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
   /* register multicast address for destination advertisement */
   reg_mcast_addr(&mcast_addr);
   
-  /* setup timers */
-  ctimer_set(&genesis_timer, GENESIS_TIMEOUT,
-             gen_timer_callback, NULL);
-
   while(1) {
     PROCESS_YEILD();
 
@@ -218,14 +200,12 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
      * send OAM data
      */
     if(ev == genesis_event) {
-      /* TODO: Add logic */
-
       if(current_state == STATE_IDLE) {
-        
+        send_demand_adv(&data);
+        current_state = STATE_DEMAND_ADVERTISED;
       }
     }
   }
-
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
