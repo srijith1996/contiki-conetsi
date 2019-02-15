@@ -3,14 +3,19 @@
 #define _OAM_H_
 /*---------------------------------------------------------------------------*/
 #define PRIORITY_THRESHOLD 30
+#define DEMAND_THRESHOLD   30
 /*---------------------------------------------------------------------------*/
 #define OAM_POLL_INTERVAL   (CLOCK_SECOND * 2)
+#define MAX_OAM_ENTRIES     10
 /*---------------------------------------------------------------------------*/
 /* configure module ID here */
 #define BAT_VOLT_ID          0
 #define FRAME_DROP_RATE_ID   1
 #define ETX_ID               2
 #define QUEUE_STATE_ID       3
+/*---------------------------------------------------------------------------*/
+#define LOWEST_PRIORITY     100
+#define HIGHEST_PRIORITY      1
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint16_t bytes;
@@ -33,7 +38,7 @@ struct oam_module {
   
   void (* get_val) (struct oam_val *);
   void (* reset) (void);
-  (void *) (* get_config) (void);
+  void* (* get_config) (void);
   void (* set_config) (void *);
   int (* start) (void);
   int (* stop) (void);

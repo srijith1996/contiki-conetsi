@@ -5,6 +5,7 @@
 #include "contiki-net.h"
 
 #include "oam.h"
+#include "conetsi.h"
 /*---------------------------------------------------------------------------*/
 struct oam_stats oam_buf_state;
 struct oam_module modules[MAX_OAM_ENTRIES];
@@ -15,10 +16,11 @@ static struct etimer poll_timer;
 
 extern process_event_t genesis_event;
 
+PROCESS_NAME(conetsi_server_process);
 PROCESS(oam_collect_process, "OAM Process");
 /*---------------------------------------------------------------------------*/
 static int
-priority(int id) {
+local_priority(int id) {
   switch(id) {
     case BAT_VOLT_ID:        return 100;
     case FRAME_DROP_RATE_ID: return  10;
@@ -35,7 +37,7 @@ global_priority(int id, int priority)
   /* using the Rayleigh function to scale */
   float sigma, x, ret;
   sigma = LOWEST_PRIORITY - HIGHEST_PRIORITY;
-  x = priority(id) - (LOWEST_PRIORITY - HIGHEST_PRIORITY)/2;
+  x = local_priority(id) - (LOWEST_PRIORITY - HIGHEST_PRIORITY)/2;
 
   ret = x / (sigma * sigma);
   ret = ret * exp(- x*x / (sigma*sigma));
@@ -132,7 +134,7 @@ unregister_oam(int oam_id)
       modules[i].start = modules[count - 1].start;
       modules[i].stop = modules[count - 1].stop;
 
-      modules[i].bytes = modules[count - 1].bytes
+      modules[i].bytes = modules[count - 1].bytes;
       modules[i].timeout = modules[count - 1].timeout;
       modules[i].priority = modules[count - 1].priority;
       modules[i].data = modules[count - 1].data;
@@ -193,7 +195,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
     }
 
     if(demand() > DEMAND_THRESHOLD) {
-      process_poll(&conetsi_server_process, genesis_event, &oam_buf_state);
+      process_post(&conetsi_server_process, genesis_event, &oam_buf_state);
     }
   }
   PROCESS_END();
