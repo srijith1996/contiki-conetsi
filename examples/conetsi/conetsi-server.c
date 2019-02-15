@@ -24,7 +24,7 @@ static struct ctimer idle_timer;
 process_event_t genesis_event;
 
 PROCESS(conetsi_server_process, "CoNetSI server");
-AUTOSTART_PROCESSES(&conetsi_server_process);
+AUTOSTART_PROCESSES(&conetsi_server_process, &oam_collect_process);
 /*---------------------------------------------------------------------------*/
 static void
 add_parent(uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
@@ -224,7 +224,7 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
   genesis_event = process_alloc_event();
 
   /* register multicast address for destination advertisement */
-  reg_mcast_addr(&mcast_addr);
+  reg_mcast_addr();
   
   while(1) {
     PROCESS_YEILD();

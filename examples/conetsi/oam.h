@@ -54,6 +54,8 @@ void unregister_oam(int oam_id);
 uint16_t demand();
 uint16_t get_nsi_timeout();
 uint16_t get_bytes();
+
+int oam_string(char *buf);
 /*---------------------------------------------------------------------------*/
 #endif /* _OAM_H_ */
 /*---------------------------------------------------------------------------*/

@@ -182,7 +182,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
         oam_buf_state.bytes += OAM_ENTRY_BASE_SIZE;
         oam_buf_state.bytes += modules[i].bytes;
 
-        if(oam_buf_state.exp_time < modules[i].timeout) {
+        if(oam_buf_state.exp_time > modules[i].timeout) {
           /* update the global expiration time */
           oam_buf_state.exp_time = modules[i].timeout;
         }
