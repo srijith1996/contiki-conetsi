@@ -3,6 +3,7 @@
 #define _CONETSI_H_
 /*---------------------------------------------------------------------------*/
 #include "contiki-net.h"
+#include "oam.h"
 /*---------------------------------------------------------------------------*/
 /* state space defines */
 #define STATE_IDLE              0
@@ -42,7 +43,7 @@ struct parent_details {
 
 struct conetsi_pkt {
   uint8_t type;
-  char *data;
+  char data[MAX_OAM_SIZE];
 };
   
 struct nsi_demand {

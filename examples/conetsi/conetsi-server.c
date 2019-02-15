@@ -14,10 +14,13 @@ static uint8_t current_state;
 static uint8_t listen_flag;
 static uint8_t yield;
 static uint8_t all_flagged;
+static uint32_t exp_time_init;
+static uint16_t exp_time;
 
 static struct parent_details parent[MAX_PARENT_REQ];
 static int count;
 
+static struct ctimer idle_timer;
 process_event_t genesis_event;
 
 PROCESS(conetsi_server_process, "CoNetSI server");
@@ -81,10 +84,34 @@ goto_backoff()
       } else {
         send_ack(sender_addr);
         current_state = STATE_AWAITING_JOIN_REQ;
+        ctimer_set(&idle_timer, AWAITING_JOIN_REQ_IDLE_TIMEOUT,
+                   reset_idle, &current_state);
       }
       count = 0;
     }
   }
+}
+/*---------------------------------------------------------------------------*/
+void
+reset_idle(void *state)
+{
+  int s = *((int *) state);
+
+  switch(s) {
+
+   case STATE_DEMAND_ADVERTISED:
+   case STATE_CHILD_CHOSEN:
+    send_nsi(NULL, 0);
+    break;
+
+   case STATE_IDLE:
+   case STATE_BACKOFF:
+   case STATE_AWAITING_JOIN_REQ:
+    break;
+
+   default:
+  }
+  current_state = STATE_IDLE;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -143,7 +170,7 @@ udp_rx_callback(struct simple_udp_connection *c,
     if(pkt->type == TYPE_ACK) {
       /* prepare and send join step 3 packet */
       set_child(sender_addr);
-      send_join_req();
+      send_join_req(clock_seconds() - exp_time_init);
       current_state = STATE_CHILD_CHOSEN;
     }
     break;
@@ -151,6 +178,7 @@ udp_rx_callback(struct simple_udp_connection *c,
    case STATE_CHILD_CHOSEN:
     /* timeout should result in sending nsi to parent */
     if(pkt->type == TYPE_NSI) {
+      ctimer_stop(&idle_timer);
       send_nsi(pkt->data, datalen-2);
       current_state = STATE_IDLE;
     }
@@ -158,23 +186,31 @@ udp_rx_callback(struct simple_udp_connection *c,
 
    case STATE_AWAITING_JOIN_REQ:
     if(pkt->type == TYPE_JOIN_REQUEST) {
+      ctimer_stop(&idle_timer);
       set_parent(sender_addr);
 
       /* path length will not run out here due to additional
        * condition taken care of in STATE_IDLE case
        */
-      if(/* timer is "about to expire" */) {
+      exp_time = ((struct join_req *)pkt->data)->exp_time;
+      if(exp_time < EXP_TIME_THRESHOLD) {
         send_nsi(NULL, 0);
         current_state = STATE_IDLE;
       } else {
         send_demand_adv();
         current_state = STATE_DEMAND_ADVERTISED;
+
+        /* start count-down and record current ticks */
+        ctimer_set(&idle_timer, exp_time, reset_idle, &current_state);
+        exp_time_init = clock_seconds();
       }
     }
     break;
 
    default:
     PRINTF("Error in CoNeStI: reached an unknown state\n");
+    ctimer_set(&idle_timer, (2 * CLOCK_SECOND),
+               reset_idle, &current_state);
 
   }
   return;
@@ -199,7 +235,13 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
     if(ev == genesis_event) {
       if(current_state == STATE_IDLE) {
         send_demand_adv(&data);
+
+        /* set my parent as NULL */
+        set_parent(NULL);
         current_state = STATE_DEMAND_ADVERTISED;
+        ctimer_set(&idle_timer, get_nsi_timeout(),
+                   reset_idle, &current_state);
+        exp_time_init = clock_seconds();
       }
     }
   }

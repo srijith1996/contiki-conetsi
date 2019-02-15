@@ -10,11 +10,14 @@ char conetsi_buf[MAX_OAM_SIZE];
 
 struct conetsi_node me;
 static struct simple_udp_connection conetsi_conn;
+static struct simple_udp_connection nms_conn;
 static uip_ipaddr_t mcast_addr;
+static uip_ipaddr_t host_addr;
 /*---------------------------------------------------------------------------*/
 int
 reg_mcast_addr()
 {
+  uip_ip6addr(&host_addr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0x0001);
   uip_ip6addr(&mcast_addr, 0xff01, 0, 0, 0, 0, 0, 0, 0x0002);
   uip_ds6_maddr_add(&mcast_addr);
 
@@ -27,7 +30,7 @@ int
 send_demand_adv()
 {
   struct conetsi_pkt *buf = &conetsi_buf;
-  struct nsi_demand *demand_buf = buf->data;
+  struct nsi_demand *demand_buf = &buf->data;
 
   /* These functions are defined in the OAM process */
   buf->type = uip_htons(TYPE_DEMAND_ADVERTISEMENT);
@@ -52,17 +55,17 @@ send_ack(const uip_ipaddr_t *parent)
 }
 /*---------------------------------------------------------------------------*/
 int
-send_join_req()
+send_join_req(int exp_time)
 {
   struct conetsi_pkt *buf = &conetsi_buf;
-  struct join_request *req = buf->data;
+  struct join_request *req = &buf->data;
 
   if(me.child == NULL) {
     return -1;
   }
 
   buf->type = TYPE_JOIN_REQ;
-  req->time_left = get_nsi_timeout();
+  req->time_left = exp_time;
   uip_ipaddr_copy(&req->chosen_child, &me.child);
 
   simple_udp_sendto(&conetsi_conn, &buf, SIZE_JOIN_REQ, &mcast_addr);
@@ -78,19 +81,34 @@ send_nsi(char *buf, int buf_len)
   struct conetsi_pkt *pkt = &conetsi_buf;
 
   pkt->type = uip_htons(TYPE_NSI);
-  memcpy(pkt->data, buf, buf_len);
-  memcpy(pkt->data + buf_len, &uip_lladdr, LINKADDR_SIZE);
-  add_len = oam_string(pkt->data + buf_len + LINKADDR_SIZE);
 
-  simple_udp_sendto(&conetsi_conn, &conetsi_buf,
+  if(buf != NULL) {
+    memcpy(&pkt->data, buf, buf_len);
+  } else {
+    buf_len = 0;
+  }
+
+  memcpy(&pkt->data + buf_len, &uip_lladdr, LINKADDR_SIZE);
+  add_len = oam_string(&pkt->data + buf_len + LINKADDR_SIZE);
+
+  if(uip_ipaddr_cmp(me.parent, &host_addr)) {
+    simple_udp_sendto(&nms_conn, &pkt->data,
                     (buf_len + add_len + LINKADDR_SIZE), &me.parent);
+  } else {
+    simple_udp_sendto(&conetsi_conn, &conetsi_buf,
+                    (buf_len + add_len + LINKADDR_SIZE), &me.parent);
+  }
   return (buf_len + add_len + LINKADDR_SIZE);
 }
 /*---------------------------------------------------------------------------*/
 void
 set_parent(struct uip_ipaddr_t *p)
 {
-  uip_ipaddr_copy(&me.parent_node, p);
+  if(p == NULL) {
+    uip_ip6addr(&me.parent_node, &host_addr);
+  } else {
+    uip_ipaddr_copy(&me.parent_node, p);
+  }
 }
 /*---------------------------------------------------------------------------*/
 struct uip_ipaddr_t *
