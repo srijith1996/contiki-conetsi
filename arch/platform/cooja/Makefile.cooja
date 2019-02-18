@@ -57,7 +57,7 @@ COOJA_INTFS	= beep.c button-sensor.c ip.c leds-arch.c moteid.c \
 COOJA_CORE = random.c sensors.c leds.c
 
 # (COOJA_SOURCEFILES contains additional sources set from simulator)
-CONTIKI_TARGET_SOURCEFILES = \
+CONTIKI_TARGET_SOURCEFILES += \
 $(COOJA_BASE) $(COOJA_INTFS) $(COOJA_CORE) $(COOJA_NET) $(COOJA_SOURCEFILES)
 
 CONTIKI_SOURCEFILES += $(CONTIKI_TARGET_SOURCEFILES)
