@@ -5,7 +5,7 @@
 #define PRIORITY_THRESHOLD 30
 #define DEMAND_THRESHOLD   30
 /*---------------------------------------------------------------------------*/
-#define OAM_POLL_INTERVAL   (CLOCK_SECOND * 2)
+#define OAM_POLL_INTERVAL    2
 #define MAX_OAM_ENTRIES     10
 /*---------------------------------------------------------------------------*/
 /* configure module ID here */
@@ -19,15 +19,16 @@
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint16_t bytes;
+  uint16_t init_min_time;
   uint16_t exp_time;
   float priority;
 };
 /*---------------------------------------------------------------------------*/
 struct oam_val {
   uint16_t timeout;
-  uint16_t priority;
+  float priority;
   uint16_t bytes;
-  void *data;
+  char data[10];
 };
 /*---------------------------------------------------------------------------*/
 struct oam_module {
@@ -56,7 +57,7 @@ void register_oam(int oam_id, void (* value_callback) (struct oam_val *),
 
 void unregister_oam(int oam_id);
 
-uint16_t demand();
+float demand();
 uint16_t get_nsi_timeout();
 uint16_t get_bytes();
 
