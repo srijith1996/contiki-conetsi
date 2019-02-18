@@ -1,10 +1,11 @@
-CONTIKI_PROJECT = conetsi conetsi-server oam
+CONTIKI_PROJECT = conetsi conetsi-server oam dummy-module
 all: $(CONTIKI_PROJECT)
 
 CONTIKI=../..
 
-WITH_IPV6 = 1
+#WITH_IPV6 = 1
 
-CONTIKI_TARGET_SOURCEFILES += oam.c conetsi.c
+CONTIKI_TARGET_SOURCEFILES += oam.c conetsi.c dummy-module.c
+LDFLAGS += -lm
 
 include $(CONTIKI)/Makefile.include
