@@ -44,6 +44,12 @@ global_priority(int id, int priority)
   ret = ret + 1;
 
   ret = ret * priority;
+
+  /* avoid lesser than .1 priority */
+  if(ret < 0.1) {
+    ret = 0.1;
+  }
+
   return ret;
 }
 /*---------------------------------------------------------------------------*/
