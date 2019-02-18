@@ -53,11 +53,11 @@ global_priority(int id, int priority)
   return ret;
 }
 /*---------------------------------------------------------------------------*/
-uint16_t
+float
 demand()
 {
-  uint16_t demand = oam_buf_state.bytes / oam_buf_state.exp_time;
-  demand = oam_buf_state.priority * demand;
+  float demand = oam_buf_state.bytes / (1.0 * oam_buf_state.exp_time);
+  demand = demand * 10 / oam_buf_state.priority;
 
   return demand;
 }
