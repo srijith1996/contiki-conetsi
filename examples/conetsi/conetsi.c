@@ -16,7 +16,7 @@ static uip_ipaddr_t host_addr;
 void
 reg_mcast_addr()
 {
-  uip_ip6addr(&host_addr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0x0001);
+  uip_ip6addr(&host_addr, 0xfd00, 0, 0, 0, 0, 0, 0, 0x0001);
   uip_ip6addr(&mcast_addr, 0xff01, 0, 0, 0, 0, 0, 0, 0x0002);
   uip_ds6_maddr_add(&mcast_addr);
 

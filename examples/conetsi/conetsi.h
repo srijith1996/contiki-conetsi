@@ -24,7 +24,7 @@
 #define TYPE_NSI                  3
 /*---------------------------------------------------------------------------*/
 #define THRESHOLD_TIME_MSEC      20
-#define THRESHOLD_DEMAND         50
+#define THRESHOLD_DEMAND          1
 #define THRESHOLD_PATH_LEN        5
 #define THRESHOLD_PKT_SIZE       90
 #define MARGINAL_PKT_SIZE        80

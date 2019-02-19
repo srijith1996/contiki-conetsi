@@ -3,7 +3,7 @@
 #define _OAM_H_
 /*---------------------------------------------------------------------------*/
 #define PRIORITY_THRESHOLD 30
-#define DEMAND_THRESHOLD   30
+#define DEMAND_THRESHOLD    5
 /*---------------------------------------------------------------------------*/
 #define OAM_POLL_INTERVAL    2
 #define MAX_OAM_ENTRIES     10
