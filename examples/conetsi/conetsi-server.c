@@ -48,11 +48,10 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
 }
 /*---------------------------------------------------------------------------*/
 void
-reset_idle(void *state)
+reset_idle()
 {
-  int s = *((int *) state);
 
-  switch(s) {
+  switch(current_state) {
 
    case STATE_DEMAND_ADVERTISED:
    case STATE_CHILD_CHOSEN:
@@ -108,7 +107,7 @@ goto_backoff(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
         send_ack(sender);
         current_state = STATE_AWAITING_JOIN_REQ;
         ctimer_set(&idle_timer, AWAITING_JOIN_REQ_IDLE_TIMEOUT,
-                   reset_idle, &current_state);
+                   reset_idle, NULL);
       }
       count = 0;
     }
@@ -201,7 +200,7 @@ udp_rx_callback(struct simple_udp_connection *c,
         current_state = STATE_DEMAND_ADVERTISED;
 
         /* start count-down and record current ticks */
-        ctimer_set(&idle_timer, exp_time, reset_idle, &current_state);
+        ctimer_set(&idle_timer, exp_time, reset_idle, NULL);
         exp_time_init = clock_seconds();
       }
     }
@@ -210,7 +209,7 @@ udp_rx_callback(struct simple_udp_connection *c,
    default:
     printf("Error in CoNeStI: reached an unknown state\n");
     ctimer_set(&idle_timer, (2 * CLOCK_SECOND),
-               reset_idle, &current_state);
+               reset_idle, NULL);
 
   }
   return;
@@ -240,7 +239,7 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
         set_parent(NULL);
         current_state = STATE_DEMAND_ADVERTISED;
         ctimer_set(&idle_timer, get_nsi_timeout(),
-                   reset_idle, &current_state);
+                   reset_idle, NULL);
         exp_time_init = clock_seconds();
       }
     }

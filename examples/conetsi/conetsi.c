@@ -9,7 +9,7 @@ char conetsi_buf[THRESHOLD_PKT_SIZE];
 
 struct conetsi_node me;
 static struct simple_udp_connection conetsi_conn;
-static struct simple_udp_connection nms_conn;
+static struct simple_udp_connection nsi_conn;
 static uip_ipaddr_t mcast_addr;
 static uip_ipaddr_t host_addr;
 /*---------------------------------------------------------------------------*/
@@ -23,6 +23,9 @@ reg_mcast_addr()
   /* register to listen to incoming CoNetSI connections */
   simple_udp_register(&conetsi_conn, UDP_SERVER_PORT, NULL,
                       UDP_CLIENT_PORT, udp_rx_callback);
+
+  simple_udp_register(&nsi_conn, UDP_SERVER_PORT, &host_addr,
+                      UDP_CLIENT_PORT, NULL);
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -87,10 +90,10 @@ send_nsi(char *buf, int buf_len)
   add_len = oam_string((char *)&(pkt->data) + buf_len + LINKADDR_SIZE);
 
   if(uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {
-    simple_udp_sendto(&nms_conn, &(pkt->data),
-                    (buf_len + add_len + LINKADDR_SIZE), &me.parent_node);
+    simple_udp_send(&nsi_conn, &(pkt->data),
+                    (buf_len + add_len + LINKADDR_SIZE));
   } else {
-    simple_udp_sendto(&conetsi_conn, &conetsi_buf,
+    simple_udp_sendto(&nsi_conn, &conetsi_buf,
                     (buf_len + add_len + LINKADDR_SIZE), &me.parent_node);
   }
   return (buf_len + add_len + LINKADDR_SIZE);
