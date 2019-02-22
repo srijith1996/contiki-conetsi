@@ -88,6 +88,47 @@ get_bytes()
   return (uint16_t) oam_buf_state.bytes;
 }
 /*---------------------------------------------------------------------------*/
+void
+cleanup(int force)
+{
+  uint16_t min_exp = 65535;
+  uint16_t min_priority = 65535;
+  int none_left = 1;
+
+  for(i = 0; i < count; i++) {
+
+    /* invalidate expired module data */
+    if(force || (oam_buf_state.init_min_time) >= modules[i].timeout) {
+
+      printf("Cleaning up module id: %d\n", modules[i].id);
+      modules[i].bytes = 0;
+      modules[i].timeout = 65535;
+      modules[i].priority = 65535;
+      modules[i].data = NULL;
+      oam_buf_state.bytes -= modules[i].bytes;
+
+    } else {
+      modules[i].timeout -= oam_buf_state.init_min_time;
+      if(modules[i].timeout < min_exp) {
+        oam_buf_state.exp_time = modules[i].timeout;
+        oam_buf_state.init_min_time = modules[i].timeout;
+      }
+      if(modules[i].priority < min_priority) {
+        oam_buf_state.priority = modules[i].priority;
+      }
+      none_left = 0;
+    }
+  }
+
+  if(none_left) {
+    oam_buf_state.bytes = 0;
+    oam_buf_state.exp_time = 65535;
+    oam_buf_state.priority = 65535;
+    oam_buf_state.init_min_time = 65535;
+  }
+  return;
+}     
+/*---------------------------------------------------------------------------*/
 int
 oam_string(char *buf)
 {
@@ -106,6 +147,7 @@ oam_string(char *buf)
 
     /* notify the modules to reset counters */
     modules[i].reset();
+    cleanup(1);
   }
   return ctr;
 }
@@ -168,47 +210,6 @@ unregister_oam(int oam_id)
   }
 }
 /*---------------------------------------------------------------------------*/
-void
-cleanup()
-{
-  uint16_t min_exp = 65535;
-  uint16_t min_priority = 65535;
-  int none_left = 1;
-
-  for(i = 0; i < count; i++) {
-
-    /* invalidate expired module data */
-    if((oam_buf_state.init_min_time) >= modules[i].timeout) {
-
-      printf("Cleaning up module id: %d\n", modules[i].id);
-      modules[i].bytes = 0;
-      modules[i].timeout = 65535;
-      modules[i].priority = 65535;
-      modules[i].data = NULL;
-      oam_buf_state.bytes -= modules[i].bytes;
-
-    } else {
-      modules[i].timeout -= oam_buf_state.init_min_time;
-      if(modules[i].timeout < min_exp) {
-        oam_buf_state.exp_time = modules[i].timeout;
-        oam_buf_state.init_min_time = modules[i].timeout;
-      }
-      if(modules[i].priority < min_priority) {
-        oam_buf_state.priority = modules[i].priority;
-      }
-      none_left = 0;
-    }
-  }
-
-  if(none_left) {
-    oam_buf_state.bytes = 0;
-    oam_buf_state.exp_time = 65535;
-    oam_buf_state.priority = 65535;
-    oam_buf_state.init_min_time = 65535;
-  }
-  return;
-}     
-/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(oam_collect_process, ev, data)
 {
   PROCESS_BEGIN();
@@ -232,7 +233,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
                          (oam_buf_state.exp_time - OAM_POLL_INTERVAL): 0;
 
     if(oam_buf_state.exp_time <= 0) {
-      cleanup();
+      cleanup(0);
     }
 
     /* poll processes */
