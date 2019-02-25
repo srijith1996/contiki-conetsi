@@ -75,24 +75,32 @@ send_nsi(char *buf, int buf_len)
 {
   /* first byte of buf is the length */
   int add_len;
+  uint8_t n_hops;
 
   struct conetsi_pkt *pkt = (void *) &conetsi_buf;
 
-  pkt->type = uip_htons(TYPE_NSI);
+  pkt->type = TYPE_NSI;
 
   if(buf != NULL) {
-    memcpy(&(pkt->data), buf, buf_len);
+    memcpy(&(pkt->data), buf + 1, buf_len);
+    n_hops = *((uint8_t *)pkt->data) + 1;
   } else {
-    buf_len = 0;
+    /* if the buf is empty, I must initiate the NSI packet */
+    n_hops = 1;
+    buf_len = 1;
   }
+  memcpy(&(pkt->data), &n_hops, 1);
 
+  /* Add my NSI data */
   memcpy(&(pkt->data) + buf_len, &uip_lladdr, LINKADDR_SIZE);
   add_len = oam_string((char *)&(pkt->data) + buf_len + LINKADDR_SIZE);
 
   if(uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {
+    printf("Sending NSI to root\n");
     simple_udp_send(&nsi_conn, &(pkt->data),
                     (buf_len + add_len + LINKADDR_SIZE));
   } else {
+    printf("Sending NSI to parent\n");
     simple_udp_sendto(&nsi_conn, &conetsi_buf,
                     (buf_len + add_len + LINKADDR_SIZE), &me.parent_node);
   }
