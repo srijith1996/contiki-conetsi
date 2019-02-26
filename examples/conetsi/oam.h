@@ -5,7 +5,7 @@
 #define PRIORITY_THRESHOLD 30
 #define DEMAND_THRESHOLD    5
 /*---------------------------------------------------------------------------*/
-#define OAM_POLL_INTERVAL    2
+#define OAM_POLL_INTERVAL   10
 #define MAX_OAM_ENTRIES     10
 /*---------------------------------------------------------------------------*/
 /* configure module ID here */

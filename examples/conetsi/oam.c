@@ -6,6 +6,9 @@
 
 #include "oam.h"
 #include "conetsi.h"
+
+#define DEBUG DEBUG_NONE
+#include "net/ipv6/uip-debug.h"
 /*---------------------------------------------------------------------------*/
 /* TODO: All timers do not consider the compute time
  * This needs an update in the next iteration
@@ -101,7 +104,7 @@ cleanup(int force)
     /* invalidate expired module data */
     if(force || (oam_buf_state.init_min_time) >= modules[i].timeout) {
 
-      printf("Cleaning up module id: %d\n", modules[i].id);
+      PRINTF("Cleaning up module id: %d\n", modules[i].id);
       modules[i].bytes = 0;
       modules[i].timeout = 65535;
       modules[i].priority = 65535;

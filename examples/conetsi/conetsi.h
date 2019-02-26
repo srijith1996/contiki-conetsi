@@ -23,7 +23,7 @@
 #define TYPE_JOIN_REQUEST         2
 #define TYPE_NSI                  3
 /*---------------------------------------------------------------------------*/
-#define THRESHOLD_TIME_MSEC      20
+#define THRESHOLD_TIME_MSEC      20 * (CLOCK_SECOND/1000.0)
 #define THRESHOLD_DEMAND          1
 #define THRESHOLD_PATH_LEN        5
 #define THRESHOLD_PKT_SIZE       90
@@ -46,6 +46,7 @@ struct parent_details {
   uip_ipaddr_t addr;
   uint32_t start_time;
   uint16_t backoff;
+  uint16_t bytes;
   uint8_t flagged;
 };
 

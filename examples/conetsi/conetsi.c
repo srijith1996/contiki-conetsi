@@ -4,11 +4,13 @@
 
 #include "conetsi.h"
 #include "oam.h"
+
+#define DEBUG DEBUG_PRINT
+#include "net/ipv6/uip-debug.h"
 /*---------------------------------------------------------------------------*/
 char conetsi_buf[THRESHOLD_PKT_SIZE];
 
 struct conetsi_node me;
-static struct simple_udp_connection conetsi_conn;
 static struct simple_udp_connection nsi_conn;
 static uip_ipaddr_t mcast_addr;
 static uip_ipaddr_t host_addr;
@@ -20,12 +22,8 @@ reg_mcast_addr()
   uip_ip6addr(&mcast_addr, 0xff01, 0, 0, 0, 0, 0, 0, 0x0002);
   uip_ds6_maddr_add(&mcast_addr);
 
-  /* register to listen to incoming CoNetSI connections */
-  simple_udp_register(&conetsi_conn, UDP_SERVER_PORT, NULL,
+  simple_udp_register(&nsi_conn, UDP_SERVER_PORT, NULL,
                       UDP_CLIENT_PORT, udp_rx_callback);
-
-  simple_udp_register(&nsi_conn, UDP_SERVER_PORT, &host_addr,
-                      UDP_CLIENT_PORT, NULL);
 }
 /*---------------------------------------------------------------------------*/
 int
@@ -33,6 +31,7 @@ send_demand_adv()
 {
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   struct nsi_demand *demand_buf = (void *) &(buf->data);
+  int i;
 
   /* These functions are defined in the OAM process */
   buf->type = uip_htons(TYPE_DEMAND_ADVERTISEMENT);
@@ -40,7 +39,16 @@ send_demand_adv()
   demand_buf->time_left = uip_htons(get_nsi_timeout());
   demand_buf->bytes = uip_htons(get_bytes());
 
-  simple_udp_sendto(&conetsi_conn, &buf, SIZE_DA, &mcast_addr);
+  printf("Demand buffer ");
+  for(i=0; i<SIZE_DA; i++) {
+    printf("%02x:", *((uint8_t *)&conetsi_buf + i));
+  }
+  printf("\n");
+
+  printf("Sending DA to ");
+  PRINT6ADDR(&mcast_addr);
+  printf("\n");
+  simple_udp_sendto(&nsi_conn, &buf, SIZE_DA, &mcast_addr);
 
   return 0;
 }
@@ -51,7 +59,10 @@ send_ack(const uip_ipaddr_t *parent)
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   
   buf->type = TYPE_ACK;
-  simple_udp_sendto(&conetsi_conn, &buf, SIZE_ACK, parent);
+  printf("Sending ACK to ");
+  PRINT6ADDR(parent);
+  printf("\n");
+  simple_udp_sendto(&nsi_conn, &buf, SIZE_ACK, parent);
 
   return 0;
 }
@@ -66,7 +77,10 @@ send_join_req(int exp_time)
   req->time_left = exp_time;
   uip_ipaddr_copy(&(req->chosen_child), &(me.child_node));
 
-  simple_udp_sendto(&conetsi_conn, &buf, SIZE_JOIN_REQ, &mcast_addr);
+  printf("Sending JOIN_REQ to ");
+  PRINT6ADDR(&mcast_addr); 
+  printf("\n");
+  simple_udp_sendto(&nsi_conn, &buf, SIZE_JOIN_REQ, &mcast_addr);
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -76,7 +90,6 @@ send_nsi(const uint8_t *buf, int buf_len)
   /* first byte of buf is the length */
   uint8_t add_len = 0;
   uint8_t tmp;
-  int i;
 
   tmp = TYPE_NSI;
   memcpy(&conetsi_buf, &tmp, 1);
