@@ -94,6 +94,7 @@ cleanup(int force)
   uint16_t min_exp = 65535;
   uint16_t min_priority = 65535;
   int none_left = 1;
+  int i;
 
   for(i = 0; i < count; i++) {
 
@@ -133,22 +134,27 @@ int
 oam_string(char *buf)
 {
   int ctr = 0;
+  int i;
 
   sprintf(buf, "%c", (uint8_t) oam_buf_state.bytes);
   ctr += 1;
-
+    
+  /* TODO: Always store module data in network byte order */
   for(i = 0; i < count; i++) {
-    sprintf((buf + ctr), "%c", (uint8_t) modules[i].id);
+    memcpy((buf + ctr), &(modules[i].id), 1);
     ctr += 1;
-    sprintf((buf + ctr), "%c", (uint8_t) modules[i].bytes);
+    memcpy((buf + ctr), &(modules[i].bytes), 1);
     ctr += 1;
-    memcpy((buf + ctr), &modules[i].data, modules[i].bytes);
+    memcpy((buf + ctr), &(modules[i].data), modules[i].bytes);
     ctr += modules[i].bytes;
 
     /* notify the modules to reset counters */
     modules[i].reset();
-    cleanup(1);
   }
+
+  /* NOTE: Clears every module. If selective sending is enabled in
+          the future, we need to cleanup differently */
+  cleanup(1);
   return ctr;
 }
 /*---------------------------------------------------------------------------*/
@@ -181,6 +187,8 @@ register_oam(int oam_id,
 void
 unregister_oam(int oam_id)
 {
+  int i;
+
   for(i = 0; i < count; i++) {
     if(modules[i].id == oam_id) {
 
@@ -252,6 +260,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
             < PRIORITY_THRESHOLD) {
         modules[i].timeout = return_val.timeout;
         modules[i].data = return_val.data;
+        modules[i].bytes = return_val.bytes;
 
         oam_buf_state.bytes += OAM_ENTRY_BASE_SIZE;
         oam_buf_state.bytes += modules[i].bytes;

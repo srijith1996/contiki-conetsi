@@ -178,7 +178,7 @@ udp_rx_callback(struct simple_udp_connection *c,
     /* timeout should result in sending nsi to parent */
     if(pkt->type == TYPE_NSI) {
       ctimer_stop(&idle_timer);
-      send_nsi(pkt->data, datalen-2);
+      send_nsi(data, datalen);
       current_state = STATE_IDLE;
     }
     break;

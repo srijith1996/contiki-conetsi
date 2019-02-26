@@ -70,7 +70,7 @@ struct join_request {
 #define SIZE_JOIN_REQ 20
 /*---------------------------------------------------------------------------*/
 /* functions used by processes */
-int send_nsi(char *buf, int buf_len);
+int send_nsi(const uint8_t *buf, int buf_len);
 
 /* Register Multicast address for CoNeStI */
 void reg_mcast_addr();

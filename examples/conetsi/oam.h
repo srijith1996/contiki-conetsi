@@ -46,7 +46,7 @@ struct oam_module {
 
   void *data;
 };
-#define OAM_ENTRY_BASE_SIZE 4
+#define OAM_ENTRY_BASE_SIZE 2
 /*---------------------------------------------------------------------------*/
 /* functions for registering and unregistering */
 void register_oam(int oam_id, void (* value_callback) (struct oam_val *),

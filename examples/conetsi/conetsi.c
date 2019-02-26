@@ -71,40 +71,41 @@ send_join_req(int exp_time)
 }
 /*---------------------------------------------------------------------------*/
 int
-send_nsi(char *buf, int buf_len)
+send_nsi(const uint8_t *buf, int buf_len)
 {
   /* first byte of buf is the length */
-  int add_len;
-  uint8_t n_hops;
+  uint8_t add_len = 0;
+  uint8_t tmp;
+  int i;
 
-  struct conetsi_pkt *pkt = (void *) &conetsi_buf;
-
-  pkt->type = TYPE_NSI;
+  tmp = TYPE_NSI;
+  memcpy(&conetsi_buf, &tmp, 1);
+  add_len += 1;
 
   if(buf != NULL) {
-    memcpy(&(pkt->data), buf + 1, buf_len);
-    n_hops = *((uint8_t *)pkt->data) + 1;
+    memcpy(&conetsi_buf + add_len, buf + 1, buf_len - 1);
+    add_len += buf_len - 1;
+    tmp = *((uint8_t *)(&conetsi_buf + add_len)) + 1;
+    printf("Number of hops: %d\n", tmp);
+
   } else {
     /* if the buf is empty, I must initiate the NSI packet */
-    n_hops = 1;
+    tmp = 1;
     buf_len = 1;
+    add_len += 1;
   }
-  memcpy(&(pkt->data), &n_hops, 1);
+  memcpy((void *)&conetsi_buf + 1, &tmp, 1);
+
+  memcpy((void *)&conetsi_buf + add_len, &uip_lladdr, LINKADDR_SIZE);
+  add_len += LINKADDR_SIZE;
 
   /* Add my NSI data */
-  memcpy(&(pkt->data) + buf_len, &uip_lladdr, LINKADDR_SIZE);
-  add_len = oam_string((char *)&(pkt->data) + buf_len + LINKADDR_SIZE);
+  add_len += oam_string((void *)&conetsi_buf + add_len);
 
-  if(uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {
-    printf("Sending NSI to root\n");
-    simple_udp_send(&nsi_conn, &(pkt->data),
-                    (buf_len + add_len + LINKADDR_SIZE));
-  } else {
-    printf("Sending NSI to parent\n");
-    simple_udp_sendto(&nsi_conn, &conetsi_buf,
-                    (buf_len + add_len + LINKADDR_SIZE), &me.parent_node);
-  }
-  return (buf_len + add_len + LINKADDR_SIZE);
+  /* Send NSI to parent */
+  simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &me.parent_node);
+
+  return add_len;
 }
 /*---------------------------------------------------------------------------*/
 void
