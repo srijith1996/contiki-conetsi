@@ -4,7 +4,6 @@
 
 #include "conetsi.h"
 #include "oam.h"
-
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
 /*---------------------------------------------------------------------------*/
@@ -34,7 +33,7 @@ send_demand_adv()
   int i;
 
   /* These functions are defined in the OAM process */
-  buf->type = uip_htons(TYPE_DEMAND_ADVERTISEMENT);
+  buf->type = TYPE_DEMAND_ADVERTISEMENT;
   demand_buf->demand = uip_htons(demand());
   demand_buf->time_left = uip_htons(get_nsi_timeout());
   demand_buf->bytes = uip_htons(get_bytes());
@@ -48,7 +47,7 @@ send_demand_adv()
   printf("Sending DA to ");
   PRINT6ADDR(&mcast_addr);
   printf("\n");
-  simple_udp_sendto(&nsi_conn, &buf, SIZE_DA, &mcast_addr);
+  simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_DA, &mcast_addr);
 
   return 0;
 }
@@ -62,7 +61,7 @@ send_ack(const uip_ipaddr_t *parent)
   printf("Sending ACK to ");
   PRINT6ADDR(parent);
   printf("\n");
-  simple_udp_sendto(&nsi_conn, &buf, SIZE_ACK, parent);
+  simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_ACK, parent);
 
   return 0;
 }
@@ -72,15 +71,22 @@ send_join_req(int exp_time)
 {
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   struct join_request *req = (void *) &(buf->data);
+  int i;
 
   buf->type = TYPE_JOIN_REQUEST;
-  req->time_left = exp_time;
+  req->time_left = uip_htons(exp_time);
   uip_ipaddr_copy(&(req->chosen_child), &(me.child_node));
+
+  PRINTF("Request buffer: ");
+  for(i=0; i<SIZE_JOIN_REQ; i++) {
+    PRINTF("%02x:", *((uint8_t *)buf + i));
+  }
+  PRINTF("\n");
 
   printf("Sending JOIN_REQ to ");
   PRINT6ADDR(&mcast_addr); 
   printf("\n");
-  simple_udp_sendto(&nsi_conn, &buf, SIZE_JOIN_REQ, &mcast_addr);
+  simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_JOIN_REQ, &mcast_addr);
   return 0;
 }
 /*---------------------------------------------------------------------------*/
@@ -153,6 +159,8 @@ float
 get_backoff(int demand, int time_left)
 {
   /* Strictly lesser than time left */
-  return BACKOFF_FACTOR * time_left * demand;
+  PRINTF("Computing backoff: %d, %d\n", demand, time_left);
+  //return BACKOFF_FACTOR * time_left * demand
+  return 2000 + random_rand() % 5000;
 }
 /*---------------------------------------------------------------------------*/

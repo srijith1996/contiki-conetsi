@@ -70,10 +70,13 @@ global_priority(int id, int priority)
   return ret;
 }
 /*---------------------------------------------------------------------------*/
-float
+int
 demand()
 {
-  float demand = oam_buf_state.bytes / (1.0 * oam_buf_state.exp_time);
+  int demand = oam_buf_state.bytes * CLOCK_SECOND /
+                  (1.0 * oam_buf_state.exp_time);
+
+  //printf("Demand computation: %d/1000, %d\n", demand*1000, oam_buf_state.priority);
   demand = demand * 10 / oam_buf_state.priority;
 
   return demand;

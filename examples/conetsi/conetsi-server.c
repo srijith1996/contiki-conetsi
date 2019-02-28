@@ -25,6 +25,8 @@ static uint16_t nsi_timeout;
 static struct parent_details parent[MAX_PARENT_REQ];
 static int count, i;
 
+static char conetsi_data[THRESHOLD_PKT_SIZE];
+
 static struct ctimer idle_timer;
 static struct etimer poll_timer;
 process_event_t genesis_event;
@@ -43,7 +45,7 @@ ticks(const int time_secs) {
 /*---------------------------------------------------------------------------*/
 static float
 msec(const uint16_t time) {
-  return time / 1000.0;
+  return time * 1000.0;
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -101,7 +103,8 @@ udp_rx_callback(struct simple_udp_connection *c,
 /* inclusion of a state space may make more sense */
 /* switch case can be used for all states */
 
-  struct conetsi_pkt *pkt = (struct conetsi_pkt *) data;
+  memcpy(&conetsi_data, data, datalen);
+  struct conetsi_pkt *pkt = (struct conetsi_pkt *) conetsi_data;
 
   PRINTF("Received a UDP packet from ");
   PRINT6ADDR(sender_addr);
@@ -109,9 +112,19 @@ udp_rx_callback(struct simple_udp_connection *c,
   PRINT6ADDR(receiver_addr);
   PRINTF("\n");
 
+  PRINTF("State: %d\n", current_state);
+
+  PRINTF("Buffer: ");
+  for(i=0; i<datalen; i++) {
+    PRINTF("%02x:", *((uint8_t *)pkt + i));
+  }
+  PRINTF("\n");
+
   switch(current_state) {
 
    case STATE_IDLE:
+    PRINTF("Checking if potential DA\n");
+    PRINTF("Packet type: %d\n", pkt->type);
     if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
       /* count and listen_flag are set/reset to 0 everytime the
        * node receives a DA in idle state
@@ -128,6 +141,7 @@ udp_rx_callback(struct simple_udp_connection *c,
     break;
 
    case STATE_BACKOFF:
+    PRINTF("Pkt type: %d\n", pkt->type);
     if(pkt->type == TYPE_JOIN_REQUEST) {
 
       PRINTF("Received JR from ");
@@ -135,8 +149,17 @@ udp_rx_callback(struct simple_udp_connection *c,
       PRINTF("\n");
 
       for(i = 0; i < count; i++) {
-        if(uip_ipaddr_cmp(&sender_addr, &parent[i].addr)) {
+        PRINT6ADDR(&parent[i].addr);
+        PRINTF("\n");
+        PRINT6ADDR(sender_addr);
+        PRINTF("\n");
+        if(uip_ipaddr_cmp(sender_addr, &parent[i].addr)) {
           parent[i].flagged = 1;
+          PRINTF("My parent ");
+          PRINT6ADDR(&parent[i].addr);
+          PRINTF(" chose ");
+          PRINT6ADDR(&(((struct join_request *)&pkt->data)->chosen_child));
+          PRINTF(":(  \n");
           break;
         }
       }
@@ -168,14 +191,22 @@ udp_rx_callback(struct simple_udp_connection *c,
       PRINT6ADDR(sender_addr);
       PRINTF("\n");
 
+    } else if(pkt->type == TYPE_NSI) {
+      /* send dummy join request */
+      set_child(sender_addr);
+      send_join_req(clock_seconds() - exp_time_init);
+      goto parse_nsi;
     }
+      
     break;
 
    case STATE_CHILD_CHOSEN:
     /* timeout should result in sending nsi to parent */
     if(pkt->type == TYPE_NSI) {
+parse_nsi:
+      PRINTF("Preparing NSI...\n");
       ctimer_stop(&idle_timer);
-      send_nsi(data, datalen);
+      send_nsi((void *)&conetsi_data, datalen);
       current_state = STATE_IDLE;
     }
     break;
@@ -259,15 +290,11 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
    /* TODO: ACK should be sent to multiple parent */
 
   /* Change the context to conetsi process to avoid blocking
-   * the UDP callback process
-   */
-  PRINTF("Entered new thread\n");
-  while(1) {
+   * the UDP callback process */ PRINTF("Entered new thread\n"); while(1) {
     /* recompute yield */
     etimer_set(&poll_timer, CLOCK_SECOND / 10);
-    PROCESS_YIELD_UNTIL(count > 0 && etimer_expired(&poll_timer));
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&poll_timer));
 
-    PRINTF("Woken up, count = %d\n", count);
     yield = 1;
     all_flagged = 0;
 
@@ -277,12 +304,13 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
       PRINTF(" flagged? %d\n", parent[i].flagged);
 
       PRINTF("Parent start time: %d\n", parent[i].start_time);
-      PRINTF("Parent backoff: %d\n", parent[i].backoff);
+      PRINTF("Parent backoff: %d/%d\n", parent[i].backoff * 1000, 1000);
       PRINTF("Time left: %d\n", (clock_seconds() - parent[i].start_time
-              - parent[i].backoff));
+              - parent[i].backoff/CLOCK_SECOND));
 
       yield &= (parent[i].flagged ||
-                (clock_seconds() < parent[i].start_time + parent[i].backoff));
+                (clock_seconds() * CLOCK_SECOND <
+            parent[i].start_time * CLOCK_SECOND + parent[i].backoff));
       if(i == 0) {
         all_flagged = parent[i].flagged;
       }
@@ -318,6 +346,7 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
     }
   }
   PRINTF("Exiting backoff\n");
+  
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/

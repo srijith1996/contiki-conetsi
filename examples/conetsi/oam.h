@@ -57,7 +57,7 @@ void register_oam(int oam_id, void (* value_callback) (struct oam_val *),
 
 void unregister_oam(int oam_id);
 
-float demand();
+int demand();
 uint16_t get_nsi_timeout();
 uint16_t get_bytes();
 

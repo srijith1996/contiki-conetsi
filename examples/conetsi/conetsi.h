@@ -24,7 +24,7 @@
 #define TYPE_NSI                  3
 /*---------------------------------------------------------------------------*/
 #define THRESHOLD_TIME_MSEC      20 * (CLOCK_SECOND/1000.0)
-#define THRESHOLD_DEMAND          1
+#define THRESHOLD_DEMAND          1 * CLOCK_SECOND
 #define THRESHOLD_PATH_LEN        5
 #define THRESHOLD_PKT_SIZE       90
 #define MARGINAL_PKT_SIZE        80
@@ -64,11 +64,12 @@ struct nsi_demand {
 struct join_request {
   uip_ipaddr_t chosen_child;
   uint16_t time_left;
+  uint16_t pad;
 };
 
-#define SIZE_DA        8
-#define SIZE_ACK       2
-#define SIZE_JOIN_REQ 20
+#define SIZE_DA        7
+#define SIZE_ACK       1
+#define SIZE_JOIN_REQ 19
 /*---------------------------------------------------------------------------*/
 /* functions used by processes */
 int send_nsi(const uint8_t *buf, int buf_len);
