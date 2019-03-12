@@ -28,7 +28,7 @@ struct dummy { uint16_t dummy_val; uint16_t max_val; uint16_t min_val; };
 
 static struct oam_val return_val;
 static int count, i;
-static struct etimer poll_timer;
+static struct etimer oam_poll_timer;
 
 extern process_event_t genesis_event;
 
@@ -38,7 +38,7 @@ PROCESS(oam_collect_process, "OAM Process");
 static int
 local_priority(int id) {
   switch(id) {
-    case 10:                 return 20;
+    case 10:                 return  20;
     case BAT_VOLT_ID:        return 100;
     case FRAME_DROP_RATE_ID: return  10;
     case ETX_ID:             return  20;
@@ -47,7 +47,7 @@ local_priority(int id) {
   }
 }
 /*---------------------------------------------------------------------------*/
-static float
+static int
 global_priority(int id, int priority)
 {
   /* scale the priority based on configured priority */
@@ -62,9 +62,9 @@ global_priority(int id, int priority)
 
   ret = ret * priority;
 
-  /* avoid lesser than .1 priority */
-  if(ret < 0.1) {
-    ret = 0.1;
+  /* avoid lesser than 1 priority */
+  if(ret <= 1) {
+    ret = 1;
   }
 
   return ret;
@@ -73,11 +73,13 @@ global_priority(int id, int priority)
 int
 demand()
 {
-  int demand = oam_buf_state.bytes * CLOCK_SECOND /
-                  (1.0 * oam_buf_state.exp_time);
+  int demand = DEMAND_FACTOR * oam_buf_state.bytes;
+  demand *= (LOWEST_PRIORITY - oam_buf_state.priority);
+  demand /= (oam_buf_state.exp_time / 100);
 
-  //printf("Demand computation: %d/1000, %d\n", demand*1000, oam_buf_state.priority);
-  demand = demand * 10 / oam_buf_state.priority;
+  PRINTF("Demand computation: %d, %d, %d, %d\n", DEMAND_FACTOR,
+         oam_buf_state.bytes, oam_buf_state.exp_time, oam_buf_state.priority);
+  PRINTF("Demand: %d\n", demand);
 
   return demand;
 }
@@ -98,7 +100,7 @@ void
 cleanup(int force)
 {
   uint16_t min_exp = 65535;
-  uint16_t min_priority = 65535;
+  uint16_t min_priority = LOWEST_PRIORITY;
   int none_left = 1;
   int i;
 
@@ -110,7 +112,7 @@ cleanup(int force)
       PRINTF("Cleaning up module id: %d\n", modules[i].id);
       modules[i].bytes = 0;
       modules[i].timeout = 65535;
-      modules[i].priority = 65535;
+      modules[i].priority = LOWEST_PRIORITY;
       modules[i].data = NULL;
       oam_buf_state.bytes -= modules[i].bytes;
 
@@ -128,9 +130,9 @@ cleanup(int force)
   }
 
   if(none_left) {
-    oam_buf_state.bytes = 0;
+    oam_buf_state.bytes = LINKADDR_SIZE;
     oam_buf_state.exp_time = 65535;
-    oam_buf_state.priority = 65535;
+    oam_buf_state.priority = LOWEST_PRIORITY;
     oam_buf_state.init_min_time = 65535;
   }
   return;
@@ -228,19 +230,21 @@ PROCESS_THREAD(oam_collect_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  oam_buf_state.bytes = 0;
+  oam_buf_state.bytes = LINKADDR_SIZE;
   oam_buf_state.init_min_time = 65535;
   oam_buf_state.exp_time = 65535;
-  oam_buf_state.priority = 65535;
+  oam_buf_state.priority = LOWEST_PRIORITY;
 
   /* For now register all processes here */
   /* e.g.: register_oam(bat_volt_id, &get_bat_volt) */
-  register_oam(10, get_value, reset, get_conf, set_conf, start_dummy, stop_dummy);
-  register_oam(11, get_value, reset, get_conf, set_conf, start_dummy, stop_dummy);
+  register_oam(10, get_value, reset, get_conf,
+               set_conf, start_dummy, stop_dummy);
+  register_oam(11, get_value, reset, get_conf,
+               set_conf, start_dummy, stop_dummy);
 
   while(1) {
-    etimer_set(&poll_timer, (OAM_POLL_INTERVAL*CLOCK_SECOND));
-    PROCESS_YIELD_UNTIL(count != 0 && etimer_expired(&poll_timer));
+    etimer_set(&oam_poll_timer, OAM_POLL_INTERVAL);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&oam_poll_timer));
 
     /* update the global expiration time */
     oam_buf_state.exp_time = (oam_buf_state.exp_time > OAM_POLL_INTERVAL)?
@@ -257,13 +261,13 @@ PROCESS_THREAD(oam_collect_process, ev, data)
         break;
       }
 
-      /* get the current function's value */
+      /* get the current module's value */
       modules[i].get_val(&return_val);
 
       /* consider entry only if the priority is high enough */
       if((modules[i].priority =
           global_priority(modules[i].id, return_val.priority))
-            < PRIORITY_THRESHOLD) {
+            < THRESHOLD_PRIORITY) {
         modules[i].timeout = return_val.timeout;
         modules[i].data = return_val.data;
         modules[i].bytes = return_val.bytes;
@@ -282,7 +286,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
       }
     }
 
-    if(demand() > DEMAND_THRESHOLD) {
+    if(demand() > THRESHOLD_DEMAND) {
       process_post(&conetsi_server_process, genesis_event, &oam_buf_state);
     }
   }

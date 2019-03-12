@@ -44,7 +44,7 @@ get_value(struct oam_val *oam)
     values.min_val = values.dummy_val;
   }
 
-  oam->timeout = 10;
+  oam->timeout = 10 * CLOCK_SECOND;
   oam->priority = random_rand() % 40;
   oam->bytes = 6;
   memcpy(&oam->data, &values, sizeof(struct dummy));

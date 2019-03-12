@@ -14,6 +14,16 @@ static struct simple_udp_connection nsi_conn;
 static uip_ipaddr_t mcast_addr;
 static uip_ipaddr_t host_addr;
 /*---------------------------------------------------------------------------*/
+int
+ticks_msec(const int time_msecs) {
+  return time_msecs * (CLOCK_SECOND / 1000.0);
+}
+/*---------------------------------------------------------------------------*/
+int
+msec(const uint32_t ticks) {
+  return (ticks / CLOCK_SECOND) * 1000.0;
+}
+/*---------------------------------------------------------------------------*/
 void
 reg_mcast_addr()
 {
@@ -26,27 +36,40 @@ reg_mcast_addr()
 }
 /*---------------------------------------------------------------------------*/
 int
-send_demand_adv()
+send_demand_adv(struct parent_details *parent)
 {
+  int i;
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   struct nsi_demand *demand_buf = (void *) &(buf->data);
-  int i;
 
   /* These functions are defined in the OAM process */
   buf->type = TYPE_DEMAND_ADVERTISEMENT;
-  demand_buf->demand = uip_htons(demand());
-  demand_buf->time_left = uip_htons(get_nsi_timeout());
-  demand_buf->bytes = uip_htons(get_bytes());
+  demand_buf->demand = demand();
+  demand_buf->time_left = msec(get_nsi_timeout());
+  demand_buf->bytes = get_bytes();
 
-  printf("Demand buffer ");
-  for(i=0; i<SIZE_DA; i++) {
-    printf("%02x:", *((uint8_t *)&conetsi_buf + i));
+  if(parent != NULL) {
+    demand_buf->demand += parent->demand;
+    demand_buf->bytes += parent->bytes;
+    if(parent->timeout < demand_buf->time_left) {
+      demand_buf->time_left = parent->timeout;
+    }
   }
-  printf("\n");
 
-  printf("Sending DA to ");
+  /* Convert to host order */
+  HTONS(demand_buf->demand);
+  HTONS(demand_buf->time_left);
+  HTONS(demand_buf->bytes);
+
+  PRINTF("Demand buffer ");
+  for(i=0; i<SIZE_DA; i++) {
+    PRINTF("%02x:", *((uint8_t *)&conetsi_buf + i));
+  }
+  PRINTF("\n");
+
+  PRINTF("Sending DA to ");
   PRINT6ADDR(&mcast_addr);
-  printf("\n");
+  PRINTF("\n");
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_DA, &mcast_addr);
 
   return 0;
@@ -58,9 +81,9 @@ send_ack(const uip_ipaddr_t *parent)
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   
   buf->type = TYPE_ACK;
-  printf("Sending ACK to ");
+  PRINTF("Sending ACK to ");
   PRINT6ADDR(parent);
-  printf("\n");
+  PRINTF("\n");
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_ACK, parent);
 
   return 0;
@@ -83,9 +106,9 @@ send_join_req(int exp_time)
   }
   PRINTF("\n");
 
-  printf("Sending JOIN_REQ to ");
+  PRINTF("Sending JOIN_REQ to ");
   PRINT6ADDR(&mcast_addr); 
-  printf("\n");
+  PRINTF("\n");
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_JOIN_REQ, &mcast_addr);
   return 0;
 }
@@ -105,7 +128,7 @@ send_nsi(const uint8_t *buf, int buf_len)
     memcpy(&conetsi_buf + add_len, buf + 1, buf_len - 1);
     add_len += buf_len - 1;
     tmp = *((uint8_t *)(&conetsi_buf + add_len)) + 1;
-    printf("Number of hops: %d\n", tmp);
+    PRINTF("Number of hops: %d\n", tmp);
 
   } else {
     /* if the buf is empty, I must initiate the NSI packet */
@@ -156,11 +179,17 @@ get_child()
 }
 /*---------------------------------------------------------------------------*/
 float
-get_backoff(int demand, int time_left)
+get_backoff(int demand, int timeout_ticks)
 {
   /* Strictly lesser than time left */
-  PRINTF("Computing backoff: %d, %d\n", demand, time_left);
-  //return BACKOFF_FACTOR * time_left * demand
-  return 2000 + random_rand() % 5000;
+  PRINTF("Computing backoff: %d, %d\n", demand, timeout_ticks);
+
+  /* wait for the entire duration if I have nothing to send */
+  if(demand == 0) {
+    return timeout_ticks;
+  }
+
+  return timeout_ticks / (BACKOFF_DIV_FACTOR * demand);
+  /* return 2000 + random_rand() % 5000; */
 }
 /*---------------------------------------------------------------------------*/

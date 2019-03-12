@@ -8,6 +8,9 @@
 
 #include "oam.h"
 /*---------------------------------------------------------------------------*/
+#define NTOHS(x)  (x = uip_ntohs(x))
+#define HTONS(x)  (x = uip_htons(x))
+/*---------------------------------------------------------------------------*/
 #define UDP_SERVER_PORT 3005
 #define UDP_CLIENT_PORT 3005
 /*---------------------------------------------------------------------------*/
@@ -18,21 +21,20 @@
 #define STATE_CHILD_CHOSEN      3
 #define STATE_AWAITING_JOIN_REQ 4
 /*---------------------------------------------------------------------------*/
+/* packet type defines */
 #define TYPE_DEMAND_ADVERTISEMENT 0
 #define TYPE_ACK                  1
 #define TYPE_JOIN_REQUEST         2
 #define TYPE_NSI                  3
 /*---------------------------------------------------------------------------*/
-#define THRESHOLD_TIME_MSEC      20 * (CLOCK_SECOND/1000.0)
-#define THRESHOLD_DEMAND          1 * CLOCK_SECOND
-#define THRESHOLD_PATH_LEN        5
+/* thresholds */
+#define THRESHOLD_TIMEOUT_MSEC   20
 #define THRESHOLD_PKT_SIZE       90
-#define MARGINAL_PKT_SIZE        80
+#define MARGINAL_PKT_SIZE        (4 * THRESHOLD_PKT_SIZE) / 5
 
-/* purely motivated by the fact that communation bit rate is 5000kbps */
-#define BACKOFF_FACTOR          (0.1/5000)
-
-#define MAX_PARENT_REQ            5
+#define BACKOFF_DIV_FACTOR      10
+#define BACKOFF_POLL_INTERVAL   (CLOCK_SECOND/10)
+#define MAX_PARENT_REQ          5
 /*---------------------------------------------------------------------------*/
 #define AWAITING_JOIN_REQ_IDLE_TIMEOUT  (CLOCK_SECOND * 5)
 /*---------------------------------------------------------------------------*/
@@ -46,6 +48,8 @@ struct parent_details {
   uip_ipaddr_t addr;
   uint32_t start_time;
   uint16_t backoff;
+  uint16_t demand;
+  uint16_t timeout;
   uint16_t bytes;
   uint8_t flagged;
 };
@@ -71,6 +75,10 @@ struct join_request {
 #define SIZE_ACK       1
 #define SIZE_JOIN_REQ 19
 /*---------------------------------------------------------------------------*/
+/* functions for conversion */
+int ticks_msec(const int time_msec);
+int msec(const uint32_t ticks);
+
 /* functions used by processes */
 int send_nsi(const uint8_t *buf, int buf_len);
 
@@ -79,7 +87,7 @@ void reg_mcast_addr();
 
 /* Control message functions */
 /* Handshake step 1: Send multicast demand advertisement */
-int send_demand_adv();
+int send_demand_adv(struct parent_details *parent);
 
 /* Handshake step 2: Send unicast ack to parent */
 int send_ack(const uip_ipaddr_t *parent);

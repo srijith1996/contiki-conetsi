@@ -2,31 +2,35 @@
 #ifndef _OAM_H_
 #define _OAM_H_
 /*---------------------------------------------------------------------------*/
-#define PRIORITY_THRESHOLD 30
-#define DEMAND_THRESHOLD    5
+/* threshold defines */
+#define THRESHOLD_PRIORITY 30
+#define THRESHOLD_DEMAND   150
 /*---------------------------------------------------------------------------*/
-#define OAM_POLL_INTERVAL   10
+#define OAM_POLL_INTERVAL   (5 * CLOCK_SECOND)
 #define MAX_OAM_ENTRIES     10
 /*---------------------------------------------------------------------------*/
-/* configure module ID here */
+/* configured module IDs */
 #define BAT_VOLT_ID          0
 #define FRAME_DROP_RATE_ID   1
 #define ETX_ID               2
 #define QUEUE_STATE_ID       3
 /*---------------------------------------------------------------------------*/
+/* Priority range */
 #define LOWEST_PRIORITY     100
 #define HIGHEST_PRIORITY      1
+/*---------------------------------------------------------------------------*/
+#define DEMAND_FACTOR    CLOCK_SECOND / 100
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint16_t bytes;
   uint16_t init_min_time;
   uint16_t exp_time;
-  float priority;
+  uint16_t priority;
 };
 /*---------------------------------------------------------------------------*/
 struct oam_val {
-  uint16_t timeout;
-  float priority;
+  uint16_t timeout; /* timeout in ticks */
+  uint16_t priority;
   uint16_t bytes;
   char data[10];
 };
@@ -35,7 +39,7 @@ struct oam_module {
   uint16_t id;
   uint16_t timeout;
   uint16_t bytes;
-  float priority;
+  uint16_t priority;
   
   void (* get_val) (struct oam_val *);
   void (* reset) (void);
