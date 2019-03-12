@@ -199,6 +199,9 @@ uint16_t *radio_tsch_timeslot_timing(void);
 /* Include CPU-related configuration */
 #include "cc2538-conf.h"
 /*---------------------------------------------------------------------------*/
+/* CUSTOM: link address size reduction */
+#define LINKADDR_CONF_SIZE 2
+/*---------------------------------------------------------------------------*/
 #endif /* CONTIKI_CONF_H_ */
 /*---------------------------------------------------------------------------*/
 /** @} */
