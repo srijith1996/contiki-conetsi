@@ -483,6 +483,7 @@ csma_output_packet(mac_callback_t sent, void *ptr)
   if(n != NULL) {
     /* Add packet to the neighbor's queue */
     if(list_length(n->packet_queue) < CSMA_MAX_PACKET_PER_NEIGHBOR) {
+      printf("Queue length: %d\n", list_length(n->packet_queue));
       q = memb_alloc(&packet_memb);
       if(q != NULL) {
         q->ptr = memb_alloc(&metadata_memb);
