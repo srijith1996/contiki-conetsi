@@ -1457,13 +1457,13 @@ packet_sent(void *ptr, int status, int transmissions)
   /* CUSTOM: record delay as soon as callback is called */
   struct delay_struct *del = (struct delay_struct *) ptr;
   int i;
-  printf("stopped (%lu)\n", clock_time());
+  LOG_INFO("stopped (%lu)\n", clock_time());
   del->delay = clock_time() - del->start;
 
   for(i=0; i<DELAY_ARR_SIZE; i++) {
-    printf("%d, ", delay_arr[i].delay);
+    LOG_INFO("%d, ", delay_arr[i].delay);
   }
-  printf("\n");
+  LOG_INFO("\n");
 
   if(callback != NULL) {
     callback->output_callback(status);
@@ -1507,7 +1507,7 @@ send_packet(linkaddr_t *dest)
 
   /* CUSTOM: Record time just before sending */
   delay_arr[idx].start = clock_time();
-  printf("%d started (%lu)\n", idx, delay_arr[idx].start);
+  LOG_INFO("%d started (%lu)\n", idx, delay_arr[idx].start);
 
   /* Provide a callback function to receive the result of
      a packet transmission. */

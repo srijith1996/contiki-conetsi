@@ -6,13 +6,13 @@
 #include "contiki-lib.h"
 #include "net/ipv6/simple-udp.h"
 #include "sys/clock.h"
-#include "sys/log.h"
 
 #include "conetsi.h"
 #include "oam.h"
 
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE "CoNetSI"
+#define LOG_LEVEL LOG_LEVEL_CONETSI
 /*---------------------------------------------------------------------------*/
 static uint8_t current_state;
 static uint8_t listen_flag, yield, all_flagged;
@@ -63,14 +63,14 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
 
     /* increment counter before yielding */
     count++;
-    PRINTF("Added new parent, count = %d\n", count);
+    LOG_INFO("Added new parent, count = %d\n", count);
   }
 }
 /*---------------------------------------------------------------------------*/
 void
 reset_idle()
 {
-  PRINTF("Resetting back to IDLE from %d\n", current_state);
+  LOG_DBG("Resetting back to IDLE from %d\n", current_state);
 
   switch(current_state) {
 
@@ -105,25 +105,24 @@ udp_rx_callback(struct simple_udp_connection *c,
   memcpy(&conetsi_data, data, datalen);
   struct conetsi_pkt *pkt = (struct conetsi_pkt *) conetsi_data;
 
-  PRINTF("Received a UDP packet from ");
-  PRINT6ADDR(sender_addr);
-  PRINTF(" --> ");
-  PRINT6ADDR(receiver_addr);
-  PRINTF("\n");
+  LOG_INFO("Received a Conetsi packet from ");
+  LOG_INFO_6ADDR(sender_addr);
+  LOG_INFO_(" --> ");
+  LOG_INFO_6ADDR(receiver_addr);
+  LOG_INFO_(" (State: %d)\n", current_state);
 
-  PRINTF("State: %d\n", current_state);
-
-  PRINTF("Buffer: ");
+  LOG_DBG("Buffer: ");
   for(i=0; i<datalen; i++) {
-    PRINTF("%02x:", *((uint8_t *)pkt + i));
+    LOG_DBG_("%02x:", *((uint8_t *)pkt + i));
   }
-  PRINTF("\n");
+  LOG_DBG_("\n");
+
+  LOG_DBG("Packet type: %d\n", pkt->type);
 
   switch(current_state) {
 
    case STATE_IDLE:
-    PRINTF("Checking if potential DA\n");
-    PRINTF("Packet type: %d\n", pkt->type);
+    LOG_DBG("Checking if potential DA\n");
     if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
       /* count and listen_flag are set/reset to 0 everytime the
        * node receives a DA in idle state
@@ -131,34 +130,29 @@ udp_rx_callback(struct simple_udp_connection *c,
       count = 0;
       listen_flag = 0;
 
-      PRINTF("Received DA from ");
-      PRINT6ADDR(sender_addr);
-      PRINTF("\n");
+      LOG_INFO("Received DA from ");
+      LOG_INFO_6ADDR(sender_addr);
+      LOG_INFO_("\n");
 
       add_parent(sender_addr, (void *)pkt->data);
     }
     break;
 
    case STATE_BACKOFF:
-    PRINTF("Pkt type: %d\n", pkt->type);
     if(pkt->type == TYPE_JOIN_REQUEST) {
 
-      PRINTF("Received JR from ");
-      PRINT6ADDR(sender_addr);
-      PRINTF("\n");
+      LOG_INFO("Received JR from ");
+      LOG_INFO_6ADDR(sender_addr);
+      LOG_INFO_("\n");
 
       for(i = 0; i < count; i++) {
-        PRINT6ADDR(&parent[i].addr);
-        PRINTF("\n");
-        PRINT6ADDR(sender_addr);
-        PRINTF("\n");
         if(uip_ipaddr_cmp(sender_addr, &parent[i].addr)) {
           parent[i].flagged = 1;
-          PRINTF("My parent ");
-          PRINT6ADDR(&parent[i].addr);
-          PRINTF(" chose ");
-          PRINT6ADDR(&(((struct join_request *)&pkt->data)->chosen_child));
-          PRINTF(":(  \n");
+          LOG_INFO("My parent ");
+          LOG_INFO_6ADDR(&parent[i].addr);
+          LOG_INFO_(" chose ");
+          LOG_INFO_6ADDR(&(((struct join_request *)&pkt->data)->chosen_child));
+          LOG_INFO_("  :(  \n");
           break;
         }
       }
@@ -166,12 +160,12 @@ udp_rx_callback(struct simple_udp_connection *c,
       /* if listen_flag = 1, the demand adv is ignored without checking
        * the value of count. Only if it is zero will the count be checked
        */
-      PRINTF("Received another DA from ");
-      PRINT6ADDR(sender_addr);
-      PRINTF("\n");
+      LOG_INFO("Received another DA from ");
+      LOG_INFO_6ADDR(sender_addr);
+      LOG_INFO_("\n");
 
       if(listen_flag || count >= MAX_PARENT_REQ) {
-        PRINTF("Ignoring further Demand advertisements");
+        LOG_DBG("Ignoring further Demand advertisements");
         listen_flag = 1;
       } else {
         add_parent(sender_addr, (void *)pkt->data);
@@ -186,9 +180,9 @@ udp_rx_callback(struct simple_udp_connection *c,
 
     if(pkt->type == TYPE_ACK) {
       current_state = STATE_CHILD_CHOSEN;
-      PRINTF("Received ACK from ");
-      PRINT6ADDR(sender_addr);
-      PRINTF("\n");
+      LOG_INFO("Received ACK from ");
+      LOG_INFO_6ADDR(sender_addr);
+      LOG_INFO_("\n");
     } else if(pkt->type == TYPE_NSI) {
       goto parse_nsi;
     }
@@ -199,7 +193,7 @@ udp_rx_callback(struct simple_udp_connection *c,
     /* timeout should result in sending nsi to parent */
     if(pkt->type == TYPE_NSI) {
 parse_nsi:
-      PRINTF("Preparing NSI...\n");
+      LOG_DBG("Preparing NSI...\n");
       ctimer_stop(&idle_timer);
       send_nsi((void *)&conetsi_data, datalen);
       current_state = STATE_IDLE;
@@ -231,7 +225,7 @@ parse_nsi:
     break;
 
    default:
-    PRINTF("Error in CoNeStI: reached an unknown state\n");
+    LOG_WARN("Error in CoNeStI: reached an unknown state\n");
     ctimer_set(&idle_timer, CLOCK_SECOND, reset_idle, NULL);
 
   }
@@ -255,7 +249,7 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
      * send OAM data
      */
     if(ev == genesis_event) {
-      PRINTF("Genesis event triggered (Current state: %d)\n", current_state);
+      LOG_INFO("Genesis event triggered (Current state: %d)\n", current_state);
       if(current_state == STATE_IDLE) {
         send_demand_adv(NULL);
 
@@ -263,7 +257,7 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
         set_parent(NULL);
         init_exp_time = clock_time();
         exp_time = get_nsi_timeout();
-        PRINTF("Timeout: %d\n", exp_time);
+        LOG_INFO("Timeout: %d\n", exp_time);
 
         current_state = STATE_DEMAND_ADVERTISED;
         ctimer_set(&idle_timer, exp_time, reset_idle, NULL);
@@ -295,17 +289,17 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
     all_flagged = 0;
 
     for(i = 0; i < count; i++) {
-      PRINTF("Parent ");
-      PRINT6ADDR(&parent[i].addr);
-      PRINTF(" flagged? %d\n", parent[i].flagged);
+      LOG_DBG("Parent ");
+      LOG_DBG_6ADDR(&parent[i].addr);
+      LOG_DBG_(" flagged? %d\n", parent[i].flagged);
 
-      PRINTF("Parent start time: %ld\n", parent[i].start_time);
+      LOG_DBG("Parent start time: %ld\n", parent[i].start_time);
 
       parent[i].backoff = get_backoff(demand(), parent[i].timeout);
-      PRINTF("Parent backoff: %d\n", parent[i].backoff);
-      PRINTF("Time left: %lu\n", (-clock_time()
-                                 + parent[i].start_time
-                                 + parent[i].backoff));
+      LOG_DBG("Parent backoff: %d\n", parent[i].backoff);
+      LOG_DBG("Time now: %ld\n", clock_time());
+      LOG_DBG("Time left: %lu\n", (parent[i].start_time
+                                 + parent[i].backoff - clock_time()));
 
       yield &= (parent[i].flagged || (clock_time() <
                     parent[i].start_time + parent[i].backoff));
@@ -320,7 +314,7 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
 
     /* If I wasn't chosen by anyone -- break */
     if(all_flagged) {
-      PRINTF("All parents flagged, resetting to IDLE\n");
+      LOG_DBG("All parents flagged, resetting to IDLE\n");
       current_state = STATE_IDLE;
       break;
     }
@@ -329,13 +323,13 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
       /* path terminates here */
       if(parent[i].bytes >= MARGINAL_PKT_SIZE) {
         /* now i indexes the first entry which expired */
-        PRINTF("Packet will bloat if continued. Sending NSI\n");
+        LOG_INFO("Packet will bloat if continued. Sending NSI\n");
         set_parent(&(parent[i].addr));
 
         send_nsi(NULL, 0);
         current_state = STATE_IDLE;
       } else {
-        PRINTF("Backoff over. Sending ACK\n");
+        LOG_DBG("Backoff over. Sending ACK\n");
 
         /* TODO: will need change if multiple parents get acked */
         send_ack(&(parent[i].addr));
@@ -348,7 +342,7 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
       count = 0;
     }
   }
-  PRINTF("Exiting backoff\n");
+  LOG_DBG("Exiting backoff\n");
   
   PROCESS_END();
 }

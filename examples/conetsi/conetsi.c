@@ -4,8 +4,10 @@
 
 #include "conetsi.h"
 #include "oam.h"
-#define DEBUG DEBUG_PRINT
-#include "net/ipv6/uip-debug.h"
+
+#include "sys/log.h"
+#define LOG_MODULE "CoNetSI"
+#define LOG_LEVEL LOG_LEVEL_CONETSI
 /*---------------------------------------------------------------------------*/
 char conetsi_buf[THRESHOLD_PKT_SIZE];
 
@@ -61,15 +63,15 @@ send_demand_adv(struct parent_details *parent)
   HTONS(demand_buf->time_left);
   HTONS(demand_buf->bytes);
 
-  PRINTF("Demand buffer ");
+  LOG_INFO("Demand buffer ");
   for(i=0; i<SIZE_DA; i++) {
-    PRINTF("%02x:", *((uint8_t *)&conetsi_buf + i));
+    LOG_INFO_("%02x:", *((uint8_t *)&conetsi_buf + i));
   }
-  PRINTF("\n");
+  LOG_INFO_("\n");
 
-  PRINTF("Sending DA to ");
-  PRINT6ADDR(&mcast_addr);
-  PRINTF("\n");
+  LOG_INFO("Sending DA to ");
+  LOG_INFO_6ADDR(&mcast_addr);
+  LOG_INFO_("\n");
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_DA, &mcast_addr);
 
   return 0;
@@ -81,9 +83,9 @@ send_ack(const uip_ipaddr_t *parent)
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   
   buf->type = TYPE_ACK;
-  PRINTF("Sending ACK to ");
-  PRINT6ADDR(parent);
-  PRINTF("\n");
+  LOG_INFO("Sending ACK to ");
+  LOG_INFO_6ADDR(parent);
+  LOG_INFO_("\n");
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_ACK, parent);
 
   return 0;
@@ -100,15 +102,15 @@ send_join_req(int exp_time)
   req->time_left = uip_htons(exp_time);
   uip_ipaddr_copy(&(req->chosen_child), &(me.child_node));
 
-  PRINTF("Request buffer: ");
+  LOG_INFO("Request buffer: ");
   for(i=0; i<SIZE_JOIN_REQ; i++) {
-    PRINTF("%02x:", *((uint8_t *)buf + i));
+    LOG_INFO_("%02x:", *((uint8_t *)buf + i));
   }
-  PRINTF("\n");
+  LOG_INFO_("\n");
 
-  PRINTF("Sending JOIN_REQ to ");
-  PRINT6ADDR(&mcast_addr); 
-  PRINTF("\n");
+  LOG_INFO("Sending JOIN_REQ to ");
+  LOG_INFO_6ADDR(&mcast_addr);
+  LOG_INFO_("\n");
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_JOIN_REQ, &mcast_addr);
   return 0;
 }
@@ -120,6 +122,10 @@ send_nsi(const uint8_t *buf, int buf_len)
   uint8_t add_len = 0;
   uint8_t tmp;
 
+  LOG_INFO("Sending NSI to ");
+  LOG_INFO_6ADDR(&me.parent_node);
+  LOG_INFO_("\n");
+
   tmp = TYPE_NSI;
   memcpy(&conetsi_buf, &tmp, 1);
   add_len += 1;
@@ -128,7 +134,7 @@ send_nsi(const uint8_t *buf, int buf_len)
     memcpy(&conetsi_buf + add_len, buf + 1, buf_len - 1);
     add_len += buf_len - 1;
     tmp = *((uint8_t *)(&conetsi_buf + add_len)) + 1;
-    PRINTF("Number of hops: %d\n", tmp);
+    LOG_INFO("Number of hops: %d\n", tmp);
 
   } else {
     /* if the buf is empty, I must initiate the NSI packet */
@@ -182,10 +188,11 @@ int
 get_backoff(int demand, int timeout_ticks)
 {
   /* Strictly lesser than time left */
-  PRINTF("Computing backoff: %d, %d\n", demand, timeout_ticks);
+  LOG_DBG("Computing backoff: %d, %d", demand, timeout_ticks);
 
   /* wait for the entire duration if I have nothing to send */
   if(demand == 0) {
+    LOG_DBG_("\n");
     return timeout_ticks;
   }
   timeout_ticks /= (BACKOFF_DIV_FACTOR * demand);
@@ -195,6 +202,7 @@ get_backoff(int demand, int timeout_ticks)
   rand_ticks -= BACKOFF_RAND_RANGE;    /* range [-RAND_RANGE, RAND_RANGE-1] */
   timeout_ticks += rand_ticks;
 
+  LOG_DBG_(", %d\n", timeout_ticks);
   return timeout_ticks;
 }
 /*---------------------------------------------------------------------------*/

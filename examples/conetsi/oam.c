@@ -7,8 +7,9 @@
 #include "oam.h"
 #include "conetsi.h"
 
-#define DEBUG DEBUG_NONE
-#include "net/ipv6/uip-debug.h"
+#include "sys/log.h"
+#define LOG_MODULE "OAM"
+#define LOG_LEVEL LOG_LEVEL_OAM
 /*---------------------------------------------------------------------------*/
 /* TODO: All timers do not consider the compute time
  * This needs an update in the next iteration
@@ -77,9 +78,9 @@ demand()
   demand *= (LOWEST_PRIORITY - oam_buf_state.priority);
   demand /= (oam_buf_state.exp_time / 100);
 
-  PRINTF("Demand computation: %d, %d, %d, %d\n", DEMAND_FACTOR,
+  LOG_DBG("Demand computation: %d, %d, %d, %d\n", DEMAND_FACTOR,
          oam_buf_state.bytes, oam_buf_state.exp_time, oam_buf_state.priority);
-  PRINTF("Demand: %d\n", demand);
+  LOG_DBG("Demand: %d\n", demand);
 
   return demand;
 }
@@ -109,7 +110,7 @@ cleanup(int force)
     /* invalidate expired module data */
     if(force || (oam_buf_state.init_min_time) >= modules[i].timeout) {
 
-      PRINTF("Cleaning up module id: %d\n", modules[i].id);
+      LOG_INFO("Cleaning up module id: %d\n", modules[i].id);
       modules[i].bytes = 0;
       modules[i].timeout = 65535;
       modules[i].priority = LOWEST_PRIORITY;
