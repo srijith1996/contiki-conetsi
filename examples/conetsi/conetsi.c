@@ -178,7 +178,7 @@ get_child()
   return &(me.child_node);
 }
 /*---------------------------------------------------------------------------*/
-float
+int
 get_backoff(int demand, int timeout_ticks)
 {
   /* Strictly lesser than time left */
@@ -188,8 +188,13 @@ get_backoff(int demand, int timeout_ticks)
   if(demand == 0) {
     return timeout_ticks;
   }
+  timeout_ticks /= (BACKOFF_DIV_FACTOR * demand);
 
-  return timeout_ticks / (BACKOFF_DIV_FACTOR * demand);
-  /* return 2000 + random_rand() % 5000; */
+  /* Break ties randomly */
+  int rand_ticks = (random_rand() % (2 * BACKOFF_RAND_RANGE));
+  rand_ticks -= BACKOFF_RAND_RANGE;    /* range [-RAND_RANGE, RAND_RANGE-1] */
+  timeout_ticks += rand_ticks;
+
+  return timeout_ticks;
 }
 /*---------------------------------------------------------------------------*/

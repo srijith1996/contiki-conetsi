@@ -96,7 +96,7 @@ int send_ack(const uip_ipaddr_t *parent);
 int send_join_req(int exp_time);
 
 /* Get backoff time and demand */
-float get_backoff(int demand, int time_left);
+int get_backoff(int demand, int time_left);
 
 /* Get and set parent and child */
 void set_parent(const uip_ipaddr_t *p);
