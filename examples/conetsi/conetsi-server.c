@@ -54,12 +54,12 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
     uip_ipaddr_copy(&parent[count].addr, sender);
 
     /* both backoff and start time in ticks */
-    parent[count].start_time = clock_time();
-    parent[count].backoff = get_backoff(demand(), parent[count].timeout);
-    parent[count].demand = demand_pkt->demand;
-    parent[count].timeout = ticks_msec(demand_pkt->time_left);
-    parent[count].bytes = demand_pkt->bytes;
     parent[count].flagged = 0;
+    parent[count].start_time = clock_time();
+    parent[count].timeout = ticks_msec(demand_pkt->time_left);
+    parent[count].demand = demand_pkt->demand;
+    parent[count].bytes = demand_pkt->bytes;
+    parent[count].backoff = get_backoff(demand(), parent[count].timeout);
 
     /* increment counter before yielding */
     count++;
