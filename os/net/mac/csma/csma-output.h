@@ -46,6 +46,7 @@
 #include "net/mac/mac.h"
 
 void csma_output_packet(mac_callback_t sent, void *ptr);
+int csma_tx_queue_size(void);
 void csma_output_init(void);
 
 #endif /* CSMA_OUTPUT_H_ */

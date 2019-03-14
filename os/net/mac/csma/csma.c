@@ -135,12 +135,20 @@ init(void)
   on();
 }
 /*---------------------------------------------------------------------------*/
+/* CUSTOM: get queue length */
+static int
+queue_len(void)
+{
+  return csma_tx_queue_size();
+}
+/*---------------------------------------------------------------------------*/
 const struct mac_driver csma_driver = {
   "CSMA",
   init,
   send_packet,
   input_packet,
   on,
-  off
+  off,
+  queue_len
 };
 /*---------------------------------------------------------------------------*/

@@ -218,13 +218,20 @@ static int last_tx_status;
 static int last_rssi;
 
 /* CUSTOM: Variables to record delay */
-struct delay_struct {
+#define ETX_DEFAULT     2
+#define DELAY_DEFAULT 100
+#include "sys/rtimer.h"
+struct tx_delay_struct {
+  int lock;
   uint32_t start;
-  int delay;
+  uint16_t delay;
+  uint16_t queue_len;
+  uint16_t tx_count;
 };
-#define DELAY_ARR_SIZE 8
-static struct delay_struct delay_arr[DELAY_ARR_SIZE];
+#define TX_DELAY_ARR_SIZE 16
+static struct tx_delay_struct tx_delay_arr[TX_DELAY_ARR_SIZE];
 static uint8_t idx;
+uint8_t prev_transmissions;
 
 /* ----------------------------------------------------------------- */
 /* Support for reassembling multiple packets                         */
@@ -1443,6 +1450,68 @@ compress_hdr_ipv6(linkaddr_t *link_destaddr)
 /** @} */
 
 /*--------------------------------------------------------------------*/
+/* CUSTOM: initialize the delay array */
+static void
+tx_delay_arr_init(void)
+{
+  int i;
+  LOG_INFO("Initializing tx delay array\n");
+  for(i = 0; i < TX_DELAY_ARR_SIZE; i++) {
+    tx_delay_arr[i].lock = 1;
+  }
+}
+/*--------------------------------------------------------------------*/
+/* CUSTOM: get queue length */
+int
+sicslowpan_queue_len(void)
+{
+  return NETSTACK_MAC.queue_len();
+}
+/*--------------------------------------------------------------------*/
+/* CUSTOM: get estimated per TX delay */
+int
+sicslowpan_avg_pertx_delay(void)
+{
+  int avg = 0, ct = 0, i;
+  for(i = 0; i < TX_DELAY_ARR_SIZE; i++) {
+    if(!tx_delay_arr[i].lock) {
+      int total_tx = 0;
+      int j;
+      for(j = 0; j <= tx_delay_arr[i].queue_len; j++) {
+        total_tx += tx_delay_arr[(i-j) % TX_DELAY_ARR_SIZE].tx_count;
+      }
+      avg += tx_delay_arr[i].delay / total_tx;
+      ct++;
+    }
+  }
+  if(ct == 0) {
+    LOG_WARN("Queue is long. Can't compute per TX delay\n");
+    return DELAY_DEFAULT;
+  }
+  avg /= ct;
+  return avg;
+}
+/*--------------------------------------------------------------------*/
+/* CUSTOM: get estimated TX count */
+int
+sicslowpan_avg_tx_count(void)
+{
+  int avg = 0, ct = 0, i;
+  for(i = 0; i < TX_DELAY_ARR_SIZE; i++) {
+    if(!tx_delay_arr[i].lock) {
+      avg += tx_delay_arr[i].tx_count;
+      ct++;
+    }
+  }
+  if(ct == 0) {
+    LOG_WARN("Queue is long. Can't compute TX count\n");
+    return ETX_DEFAULT;
+  }
+  avg /= ct;
+  avg = (avg > 0) ? avg : ETX_DEFAULT;
+  return avg;
+}
+/*--------------------------------------------------------------------*/
 /** \name Input/output functions common to all compression schemes
  * @{                                                                 */
 /*--------------------------------------------------------------------*/
@@ -1455,15 +1524,30 @@ packet_sent(void *ptr, int status, int transmissions)
   const linkaddr_t *dest;
 
   /* CUSTOM: record delay as soon as callback is called */
-  struct delay_struct *del = (struct delay_struct *) ptr;
+  struct tx_delay_struct *del = (struct tx_delay_struct *) ptr;
   int i;
-  LOG_INFO("stopped (%lu)\n", clock_time());
-  del->delay = clock_time() - del->start;
+  LOG_DBG("stopped (%lu)\n", RTIMER_NOW());
+  del->delay = RTIMER_NOW() - del->start;
+  del->tx_count = prev_transmissions;
+  del->lock = 0;   /* release lock */
 
-  for(i=0; i<DELAY_ARR_SIZE; i++) {
-    LOG_INFO("%d, ", delay_arr[i].delay);
+  LOG_DBG("TX: ");
+  for(i=0; i<TX_DELAY_ARR_SIZE; i++) {
+    LOG_DBG_("%d, ", tx_delay_arr[i].tx_count);
   }
-  LOG_INFO("\n");
+  LOG_DBG_("\n");
+
+  LOG_DBG("Delays: ");
+  for(i=0; i<TX_DELAY_ARR_SIZE; i++) {
+    LOG_DBG_("%d, ", tx_delay_arr[i].delay);
+  }
+  LOG_DBG_("\n");
+
+  LOG_DBG("queue lengths: ");
+  for(i=0; i<TX_DELAY_ARR_SIZE; i++) {
+    LOG_DBG_("%d, ", tx_delay_arr[i].queue_len);
+  }
+  LOG_DBG_("\n");
 
   if(callback != NULL) {
     callback->output_callback(status);
@@ -1506,13 +1590,16 @@ send_packet(linkaddr_t *dest)
 #endif
 
   /* CUSTOM: Record time just before sending */
-  delay_arr[idx].start = clock_time();
-  LOG_INFO("%d started (%lu)\n", idx, delay_arr[idx].start);
+  tx_delay_arr[idx].lock = 1;
+  tx_delay_arr[idx].start = RTIMER_NOW();
+  tx_delay_arr[idx].queue_len = NETSTACK_MAC.queue_len();
+  LOG_DBG("%d started (%lu)\n", idx, tx_delay_arr[idx].start);
 
   /* Provide a callback function to receive the result of
      a packet transmission. */
-  NETSTACK_MAC.send(&packet_sent, &delay_arr[idx]);
-  idx = (idx + 1) % DELAY_ARR_SIZE;
+  NETSTACK_MAC.send(&packet_sent, &tx_delay_arr[idx]);
+
+  idx = (idx + 1) % TX_DELAY_ARR_SIZE;
 
   /* If we are sending multiple packets in a row, we need to let the
      watchdog know that we are still alive. */
@@ -2091,6 +2178,9 @@ sicslowpan_init(void)
 #if SICSLOWPAN_CONF_FRAG
   queuebuf_init();
 #endif
+
+  /* CUSTOM: initialize delay array */
+  tx_delay_arr_init();
 }
 /*--------------------------------------------------------------------*/
 int

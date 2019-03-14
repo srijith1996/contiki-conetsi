@@ -336,6 +336,15 @@ struct sicslowpan_nh_compressor {
 
 int sicslowpan_get_last_rssi(void);
 
+/* CUSTOM: get predicted tx count for next packet */
+int sicslowpan_avg_tx_count(void);
+
+/* CUSTOM: get average per tx delay */
+int sicslowpan_avg_pertx_delay(void);
+
+/* CUSTOM: get current queue length */
+int sicslowpan_queue_len(void);
+
 extern const struct network_driver sicslowpan_driver;
 
 #endif /* SICSLOWPAN_H_ */

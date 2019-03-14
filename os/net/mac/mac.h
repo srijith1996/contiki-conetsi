@@ -76,6 +76,10 @@ struct mac_driver {
 
   /** Turn the MAC layer off. */
   int (* off)(void);
+
+  /** CUSTOM: Get queue size **/
+  int (* queue_len)(void);
+
 };
 
 /* Generic MAC return values. */

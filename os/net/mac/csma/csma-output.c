@@ -118,6 +118,10 @@ struct neighbor_queue {
 
 #define MAX_QUEUED_PACKETS QUEUEBUF_NUM
 
+/* CUSTOM: for recording packet tx count */
+extern uint8_t prev_transmissions;
+
+
 /* Neighbor packet queue */
 struct packet_queue {
   struct packet_queue *next;
@@ -287,6 +291,11 @@ free_packet(struct neighbor_queue *n, struct packet_queue *p, int status)
     /* Remove packet from queue and deallocate */
     list_remove(n->packet_queue, p);
 
+    /* CUSTOM: store the TX count of last packet */
+    if(status == MAC_TX_OK) {
+      prev_transmissions = n->transmissions;
+    }
+
     queuebuf_free(p->buf);
     memb_free(&metadata_memb, p->ptr);
     memb_free(&packet_memb, p);
@@ -440,6 +449,19 @@ packet_sent(void *ptr, int status, int num_transmissions)
   }
 }
 /*---------------------------------------------------------------------------*/
+/* CUSTOM: Get total queue size of all queues */
+int
+csma_tx_queue_size(void)
+{
+  struct neighbor_queue *n = list_head(neighbor_list);
+  int size = 0;
+  while(n != NULL) {
+    size += list_length(n->packet_queue);
+    n = list_item_next(n);
+  }
+  return size;
+}
+/*---------------------------------------------------------------------------*/
 void
 csma_output_packet(mac_callback_t sent, void *ptr)
 {
@@ -483,7 +505,7 @@ csma_output_packet(mac_callback_t sent, void *ptr)
   if(n != NULL) {
     /* Add packet to the neighbor's queue */
     if(list_length(n->packet_queue) < CSMA_MAX_PACKET_PER_NEIGHBOR) {
-      LOG_INFO("Queue length: %d\n", list_length(n->packet_queue));
+      LOG_INFO("Queue length of nbr: %d\n", list_length(n->packet_queue));
       q = memb_alloc(&packet_memb);
       if(q != NULL) {
         q->ptr = memb_alloc(&metadata_memb);
