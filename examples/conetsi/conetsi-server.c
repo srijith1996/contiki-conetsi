@@ -257,16 +257,22 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
     if(ev == genesis_event) {
       LOG_INFO("Genesis event triggered (Current state: %d)\n", current_state);
       if(current_state == STATE_IDLE) {
-        send_demand_adv(NULL);
-
         /* set my parent as NULL */
         set_parent(NULL);
-        init_exp_time = clock_time();
-        exp_time = get_nsi_timeout();
-        LOG_INFO("Timeout: %d\n", exp_time);
 
-        current_state = STATE_DEMAND_ADVERTISED;
-        ctimer_set(&idle_timer, exp_time, reset_idle, NULL);
+        if(get_bytes() >= MARGINAL_PKT_SIZE) {
+          send_nsi(NULL, 0);
+        } else {
+          send_demand_adv(NULL);
+
+          init_exp_time = clock_time();
+          exp_time = get_nsi_timeout();
+          LOG_INFO("Timeout: %d\n", exp_time);
+
+          current_state = STATE_DEMAND_ADVERTISED;
+          ctimer_set(&idle_timer, exp_time, reset_idle, NULL);
+        }
+
       }
     }
   }

@@ -195,14 +195,23 @@ get_backoff(int demand, int timeout_ticks)
     LOG_DBG_("\n");
     return timeout_ticks;
   }
-  timeout_ticks /= (BACKOFF_DIV_FACTOR * demand);
+  /* timeout_ticks /= (BACKOFF_DIV_FACTOR * demand); */
+  timeout_ticks = ((MAX_DEMAND - demand) * timeout_ticks) /
+                  (BACKOFF_DIV_FACTOR * MAX_DEMAND);
 
   /* Break ties randomly */
   int rand_ticks = (random_rand() % (2 * BACKOFF_RAND_RANGE));
-  rand_ticks -= BACKOFF_RAND_RANGE;    /* range [-RAND_RANGE, RAND_RANGE-1] */
-  timeout_ticks += rand_ticks;
+
+  if(timeout_ticks <= 0) {
+    timeout_ticks = rand_ticks;
+  } else {
+    rand_ticks -= BACKOFF_RAND_RANGE;  /* range [-RAND_RANGE, RAND_RANGE-1] */
+    timeout_ticks += rand_ticks;
+  }
 
   LOG_DBG_(", %d\n", timeout_ticks);
+  LOG_INFO("Obtained backoff: %d\n", timeout_ticks);
+
   return timeout_ticks;
 }
 /*---------------------------------------------------------------------------*/
