@@ -20,12 +20,14 @@
 #define HIGHEST_PRIORITY      1
 /*---------------------------------------------------------------------------*/
 #define DEMAND_FACTOR    CLOCK_SECOND / 100
+#define THRESHOLD_PKT_SIZE       90
+#define THRESHOLD_TIMEOUT_MSEC   20
+#define THRESHOLD_TIMEOUT_TICKS  THRESHOLD_TIMEOUT_MSEC * CLOCK_SECOND / 1000
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint16_t bytes;
-  uint16_t init_min_time;
-  uint16_t exp_time;
   uint16_t priority;
+  struct timer *exp_timer;
 };
 /*---------------------------------------------------------------------------*/
 struct oam_val {
@@ -37,9 +39,9 @@ struct oam_val {
 /*---------------------------------------------------------------------------*/
 struct oam_module {
   uint16_t id;
-  uint16_t timeout;
   uint16_t bytes;
   uint16_t priority;
+  struct ctimer exp_timer;
   
   void (* get_val) (struct oam_val *);
   void (* reset) (void);

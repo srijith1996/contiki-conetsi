@@ -53,7 +53,7 @@ global_priority(int id, int priority)
 {
   /* scale the priority based on configured priority */
   /* using the Rayleigh function to scale */
-  float sigma, x, ret;
+  int sigma, x, ret;
   sigma = LOWEST_PRIORITY - HIGHEST_PRIORITY;
   x = local_priority(id) - (LOWEST_PRIORITY - HIGHEST_PRIORITY)/2;
 
@@ -68,18 +68,31 @@ global_priority(int id, int priority)
     ret = 1;
   }
 
+  LOG_DBG("Global Priority(%d): %d\n", id, ret);
+
   return ret;
 }
 /*---------------------------------------------------------------------------*/
 int
 demand()
 {
-  int demand = DEMAND_FACTOR * oam_buf_state.bytes;
-  demand *= (LOWEST_PRIORITY - oam_buf_state.priority);
-  demand /= (oam_buf_state.exp_time / 100);
+  LOG_DBG("Computing demand, timer(%p)\n", oam_buf_state.exp_timer);
 
-  LOG_DBG("Demand computation: %d, %d, %d, %d\n", DEMAND_FACTOR,
-         oam_buf_state.bytes, oam_buf_state.exp_time, oam_buf_state.priority);
+  if(oam_buf_state.exp_timer == NULL) {
+    return 0;
+  /* handle case where expiration timer just timed out */
+  } else if(timer_remaining(oam_buf_state.exp_timer) <= 0) {
+    return 0;
+  }
+
+  int demand = DEMAND_FACTOR * oam_buf_state.bytes;
+  demand *= (LOWEST_PRIORITY - oam_buf_state.priority) * 100;
+  demand /= timer_remaining(oam_buf_state.exp_timer);
+
+  LOG_DBG("Demand computation: %d, %d, %lu, %d\n", DEMAND_FACTOR,
+         oam_buf_state.bytes,
+         timer_remaining(oam_buf_state.exp_timer),
+         oam_buf_state.priority);
   LOG_DBG("Demand: %d\n", demand);
 
   return demand;
@@ -88,56 +101,75 @@ demand()
 uint16_t
 get_nsi_timeout()
 {
-  return (uint16_t) oam_buf_state.exp_time;
+  LOG_DBG("Returning timeout, timer(%p)\n", oam_buf_state.exp_timer);
+
+  if(oam_buf_state.exp_timer == NULL) {
+    return -1;
+  }
+
+  return (uint16_t)timer_remaining(oam_buf_state.exp_timer);
 }
 /*---------------------------------------------------------------------------*/
 uint16_t
 get_bytes()
 {
-  return (uint16_t) oam_buf_state.bytes;
+  return (uint16_t)oam_buf_state.bytes;
 }
 /*---------------------------------------------------------------------------*/
-void
-cleanup(int force)
+static void
+global_exp()
 {
-  uint16_t min_exp = 65535;
-  uint16_t min_priority = LOWEST_PRIORITY;
-  int none_left = 1;
-  int i;
+  if(count == 0) {
+    oam_buf_state.exp_timer = NULL;
+    return;
+  }
 
-  for(i = 0; i < count; i++) {
+  oam_buf_state.exp_timer = &(modules[0].exp_timer.etimer.timer);
+  for(i = 1; i < count; i++) {
+    LOG_DBG("Global expiration check, timer(%p), module_timer(%p)\n",
+             oam_buf_state.exp_timer, &(modules[i].exp_timer.etimer.timer));
 
-    /* invalidate expired module data */
-    if(force || (oam_buf_state.init_min_time) >= modules[i].timeout) {
-
-      LOG_INFO("Cleaning up module id: %d\n", modules[i].id);
-      modules[i].bytes = 0;
-      modules[i].timeout = 65535;
-      modules[i].priority = LOWEST_PRIORITY;
-      modules[i].data = NULL;
-      oam_buf_state.bytes -= modules[i].bytes;
-
-    } else {
-      modules[i].timeout -= oam_buf_state.init_min_time;
-      if(modules[i].timeout < min_exp) {
-        oam_buf_state.exp_time = modules[i].timeout;
-        oam_buf_state.init_min_time = modules[i].timeout;
-      }
-      if(modules[i].priority < min_priority) {
-        oam_buf_state.priority = modules[i].priority;
-      }
-      none_left = 0;
+    if(timer_remaining(oam_buf_state.exp_timer) >
+       timer_remaining(&(modules[i].exp_timer.etimer.timer))) {
+      oam_buf_state.exp_timer = &(modules[i].exp_timer.etimer.timer);
     }
   }
-
-  if(none_left) {
-    oam_buf_state.bytes = LINKADDR_SIZE;
-    oam_buf_state.exp_time = 65535;
+}
+/*---------------------------------------------------------------------------*/
+static void
+global_p()
+{
+  if(count == 0) {
     oam_buf_state.priority = LOWEST_PRIORITY;
-    oam_buf_state.init_min_time = 65535;
+    return;
   }
-  return;
-}     
+  oam_buf_state.priority = modules[0].priority;
+  for(i = 1; i < count; i++) {
+    if(oam_buf_state.priority > modules[i].priority) {
+      oam_buf_state.priority = modules[i].priority;
+    }
+  }
+}
+/*---------------------------------------------------------------------------*/
+static void
+cleanup(void *mod)
+{
+  struct oam_module *module = mod;
+
+  LOG_INFO("Cleaning up module id: %d\n", module->id);
+  oam_buf_state.bytes -= module->bytes;
+  oam_buf_state.bytes -= OAM_ENTRY_BASE_SIZE;
+
+  module->bytes = 0;
+  module->priority = LOWEST_PRIORITY;
+  module->data = NULL;
+  ctimer_stop(&module->exp_timer);
+
+  global_exp();
+  global_p();
+  //LOG_DBG("After cleanup: (GP: %d, Gexp: %lu)\n",
+  //        oam_buf_state.priority, timer_remaining(oam_buf_state.exp_timer));
+}
 /*---------------------------------------------------------------------------*/
 int
 oam_string(char *buf)
@@ -159,11 +191,9 @@ oam_string(char *buf)
 
     /* notify the modules to reset counters */
     modules[i].reset();
+    cleanup(&modules[i]);
   }
 
-  /* NOTE: Clears every module. If selective sending is enabled in
-          the future, we need to cleanup differently */
-  cleanup(1);
   return ctr;
 }
 /*---------------------------------------------------------------------------*/
@@ -186,7 +216,6 @@ register_oam(int oam_id,
   modules[count].stop = stop_callback;
 
   modules[count].bytes = 0;
-  modules[count].timeout = 65535;
   modules[count].priority = 65535;
   modules[count].data = NULL;
   
@@ -217,7 +246,6 @@ unregister_oam(int oam_id)
       modules[i].stop = modules[count - 1].stop;
 
       modules[i].bytes = modules[count - 1].bytes;
-      modules[i].timeout = modules[count - 1].timeout;
       modules[i].priority = modules[count - 1].priority;
       modules[i].data = modules[count - 1].data;
 
@@ -232,9 +260,8 @@ PROCESS_THREAD(oam_collect_process, ev, data)
   PROCESS_BEGIN();
 
   oam_buf_state.bytes = LINKADDR_SIZE;
-  oam_buf_state.init_min_time = 65535;
-  oam_buf_state.exp_time = 65535;
   oam_buf_state.priority = LOWEST_PRIORITY;
+  oam_buf_state.exp_timer = NULL;
 
   /* For now register all processes here */
   /* e.g.: register_oam(bat_volt_id, &get_bat_volt) */
@@ -247,13 +274,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
     etimer_set(&oam_poll_timer, OAM_POLL_INTERVAL);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&oam_poll_timer));
 
-    /* update the global expiration time */
-    oam_buf_state.exp_time = (oam_buf_state.exp_time > OAM_POLL_INTERVAL)?
-                         (oam_buf_state.exp_time - OAM_POLL_INTERVAL): 0;
-
-    if(oam_buf_state.exp_time <= 0) {
-      cleanup(0);
-    }
+    LOG_DBG("Woken up for poll, module count - %d\n", count);
 
     /* poll processes */
     for(i = 0; i < count; i++) {
@@ -261,6 +282,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
       if(modules[i].data != NULL) {
         break;
       }
+      LOG_INFO("Polling module %d for value\n", i);
 
       /* get the current module's value */
       modules[i].get_val(&return_val);
@@ -269,17 +291,22 @@ PROCESS_THREAD(oam_collect_process, ev, data)
       if((modules[i].priority =
           global_priority(modules[i].id, return_val.priority))
             < THRESHOLD_PRIORITY) {
-        modules[i].timeout = return_val.timeout;
+
+        /* Setup callback timer to cleanup this OAM process */
+        ctimer_set(&modules[i].exp_timer, return_val.timeout,
+                   cleanup, &modules[i]);
         modules[i].data = return_val.data;
         modules[i].bytes = return_val.bytes;
 
         oam_buf_state.bytes += OAM_ENTRY_BASE_SIZE;
         oam_buf_state.bytes += modules[i].bytes;
 
-        if(oam_buf_state.exp_time > modules[i].timeout) {
+        if(oam_buf_state.exp_timer == NULL) {
+          oam_buf_state.exp_timer = &(modules[i].exp_timer.etimer.timer);
+        } else if(timer_remaining(oam_buf_state.exp_timer) >
+           timer_remaining(&(modules[i].exp_timer.etimer.timer))) {
           /* update the global expiration time */
-          oam_buf_state.exp_time = modules[i].timeout;
-          oam_buf_state.init_min_time = oam_buf_state.exp_time;
+          oam_buf_state.exp_timer = &(modules[i].exp_timer.etimer.timer);
         }
         if(oam_buf_state.priority > modules[i].priority) {
           oam_buf_state.priority = modules[i].priority;
@@ -288,6 +315,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
     }
 
     if(demand() > THRESHOLD_DEMAND) {
+      LOG_INFO("Waking CoNetSI\n");
       process_post(&conetsi_server_process, genesis_event, &oam_buf_state);
     }
   }

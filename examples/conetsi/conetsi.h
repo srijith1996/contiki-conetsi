@@ -28,13 +28,17 @@
 #define TYPE_NSI                  3
 /*---------------------------------------------------------------------------*/
 /* thresholds */
-#define THRESHOLD_TIMEOUT_MSEC   20
-#define THRESHOLD_PKT_SIZE       90
-#define MARGINAL_PKT_SIZE        (4 * THRESHOLD_PKT_SIZE) / 5
+#define THRESHOLD_PATH_LEN    5
+#define MARGINAL_PKT_SIZE (((THRESHOLD_PATH_LEN - 1) * THRESHOLD_PKT_SIZE) /\
+                           THRESHOLD_PATH_LEN)
 
-#define BACKOFF_DIV_FACTOR      10
-#define BACKOFF_POLL_INTERVAL   (CLOCK_SECOND/10)
-#define MAX_PARENT_REQ          5
+#define BACKOFF_DIV_FACTOR    THRESHOLD_PATH_LEN * 3
+#define BACKOFF_RAND_RANGE    10
+#define BACKOFF_POLL_INTERVAL 5
+#define MAX_DEMAND       (THRESHOLD_PKT_SIZE / \
+                         (HIGHEST_PRIORITY * THRESHOLD_TIMEOUT_TICKS))
+
+#define MAX_PARENT_REQ        5
 /*---------------------------------------------------------------------------*/
 #define AWAITING_JOIN_REQ_IDLE_TIMEOUT  (CLOCK_SECOND * 5)
 /*---------------------------------------------------------------------------*/

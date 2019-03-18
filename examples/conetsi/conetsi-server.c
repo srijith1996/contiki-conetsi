@@ -209,8 +209,14 @@ parse_nsi:
        * condition taken care of in STATE_IDLE case
        */
       init_exp_time = clock_time();
-      exp_time = ticks_msec(((struct join_request *)(pkt->data))->time_left);
-      if(exp_time < THRESHOLD_TIMEOUT_MSEC) {
+      struct join_request *pkt_data = (struct join_request *)(pkt->data);
+      NTOHS(pkt_data->time_left);
+
+      exp_time = ticks_msec(pkt_data->time_left);
+      LOG_DBG("Timeout in JREQ: %d\n", exp_time);
+
+      if(exp_time < THRESHOLD_TIMEOUT_TICKS) {
+        LOG_DBG("Timeout threshold reached\n");
         send_nsi(NULL, 0);
         current_state = STATE_IDLE;
       } else {
