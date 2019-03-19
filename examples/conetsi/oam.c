@@ -5,7 +5,6 @@
 #include "contiki-net.h"
 
 #include "oam.h"
-#include "conetsi.h"
 
 #include "sys/log.h"
 #define LOG_MODULE "OAM"
@@ -37,7 +36,7 @@ PROCESS_NAME(conetsi_server_process);
 PROCESS(oam_collect_process, "OAM Process");
 /*---------------------------------------------------------------------------*/
 static int
-local_priority(int id) {
+config_priority(int id) {
   switch(id) {
     case 10:                 return  20;
     case BAT_VOLT_ID:        return 100;
@@ -48,14 +47,37 @@ local_priority(int id) {
   }
 }
 /*---------------------------------------------------------------------------*/
+/*
+ * Linear scaling applied to local priority
+ */
+#if (CONF_PRIORITY != PRIORITY_RAYLEIGH)
 static int
-global_priority(int id, int priority)
+global_priority_lin(int id, int priority)
+{
+  /* scale the priority based on configured priority */
+  int ret = HIGHEST_PRIORITY;
+
+  ret += ((priority - HIGHEST_PRIORITY)
+        * (LOWEST_PRIORITY - config_priority(id)))
+      / (LOWEST_PRIORITY - HIGHEST_PRIORITY);
+
+  LOG_DBG("Global Priority(%d): %d\n", id, ret);
+
+  return ret;
+}
+/*---------------------------------------------------------------------------*/
+/*
+ * Rayleigh scaling applied to local priority
+ */
+#else /* (CONF_PRIORITY != PRIORITY_LINEAR) */
+static int
+global_priority_ray(int id, int priority)
 {
   /* scale the priority based on configured priority */
   /* using the Rayleigh function to scale */
   int sigma, x, ret;
   sigma = LOWEST_PRIORITY - HIGHEST_PRIORITY;
-  x = local_priority(id) - (LOWEST_PRIORITY - HIGHEST_PRIORITY)/2;
+  x = config_priority(id) - (LOWEST_PRIORITY - HIGHEST_PRIORITY)/2;
 
   ret = x / (sigma * sigma);
   ret = ret * exp(- x*x / (sigma*sigma));
@@ -72,6 +94,7 @@ global_priority(int id, int priority)
 
   return ret;
 }
+#endif /* (CONF_PRIORITY != PRIORITY_LINEAR) */
 /*---------------------------------------------------------------------------*/
 int
 demand()

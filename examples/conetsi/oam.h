@@ -18,6 +18,19 @@
 /* Priority range */
 #define LOWEST_PRIORITY     100
 #define HIGHEST_PRIORITY      1
+
+#define PRIORITY_LINEAR   0
+#define PRIORITY_RAYLEIGH 1
+
+#ifdef CONF_PRIORITY
+#if (CONF_PRIORITY == PRIORITY_LINEAR)
+#define global_priority(...)  global_priority_lin(__VA_ARGS__)
+#elif (CONF_PRIORITY == PRIORITY_RAYLEIGH)
+#define global_priority(...)  global_priority_ray(__VA_ARGS__)
+#endif /* (CONF_PRIORITY == PRIORITY_LINEAR) */
+#else /* CONF_PRIORITY */
+#define global_priority(...) global_priority_lin(__VA_ARGS__)
+#endif /* CONF_PRIORITY */
 /*---------------------------------------------------------------------------*/
 #define DEMAND_FACTOR    CLOCK_SECOND / 100
 #define THRESHOLD_PKT_SIZE       90
