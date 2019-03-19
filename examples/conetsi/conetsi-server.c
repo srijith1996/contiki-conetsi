@@ -55,8 +55,8 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
 
     /* both backoff and start time in ticks */
     parent[count].flagged = 0;
-    parent[count].start_time = clock_time();
-    parent[count].timeout = ticks_msec(demand_pkt->time_left);
+    parent[count].start_time = RTIMER_NOW();
+    parent[count].timeout = msec2rticks(demand_pkt->time_left);
     parent[count].demand = demand_pkt->demand;
     parent[count].bytes = demand_pkt->bytes;
     parent[count].backoff = get_backoff(demand(), parent[count].timeout);
@@ -176,7 +176,7 @@ udp_rx_callback(struct simple_udp_connection *c,
    case STATE_DEMAND_ADVERTISED:
       /* prepare and send join step 3 packet */
       set_child(sender_addr);
-      send_join_req(msec(init_exp_time + exp_time - clock_time()));
+      send_join_req(init_exp_time + exp_time - RTIMER_NOW());
 
     if(pkt->type == TYPE_ACK) {
       current_state = STATE_CHILD_CHOSEN;
@@ -208,14 +208,14 @@ parse_nsi:
       /* path length will not run out here due to additional
        * condition taken care of in STATE_IDLE case
        */
-      init_exp_time = clock_time();
       struct join_request *pkt_data = (struct join_request *)(pkt->data);
       NTOHS(pkt_data->time_left);
 
-      exp_time = ticks_msec(pkt_data->time_left);
+      init_exp_time = RTIMER_NOW();
+      exp_time = msec2rticks(pkt_data->time_left);
       LOG_DBG("Timeout in JREQ: %d\n", exp_time);
 
-      if(exp_time < THRESHOLD_TIMEOUT_TICKS) {
+      if(rticks2ticks(exp_time) < THRESHOLD_TIMEOUT_TICKS) {
         LOG_DBG("Timeout threshold reached\n");
         send_nsi(NULL, 0);
         current_state = STATE_IDLE;
@@ -225,7 +225,7 @@ parse_nsi:
         current_state = STATE_DEMAND_ADVERTISED;
 
         /* start count-down */
-        ctimer_set(&idle_timer, exp_time, reset_idle, NULL);
+        ctimer_set(&idle_timer, rticks2ticks(exp_time), reset_idle, NULL);
       }
     }
     break;
@@ -265,12 +265,12 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
         } else {
           send_demand_adv(NULL);
 
-          init_exp_time = clock_time();
-          exp_time = get_nsi_timeout();
+          init_exp_time = RTIMER_NOW();
+          exp_time = ticks2rticks(get_nsi_timeout());
           LOG_INFO("Timeout: %d\n", exp_time);
 
           current_state = STATE_DEMAND_ADVERTISED;
-          ctimer_set(&idle_timer, exp_time, reset_idle, NULL);
+          ctimer_set(&idle_timer, rticks2ticks(exp_time), reset_idle, NULL);
         }
 
       }
@@ -313,7 +313,7 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
       LOG_DBG("Time left: %lu\n", (parent[i].start_time
                                  + parent[i].backoff - clock_time()));
 
-      yield &= (parent[i].flagged || (clock_time() <
+      yield &= (parent[i].flagged || (RTIMER_NOW() <
                     parent[i].start_time + parent[i].backoff));
       if(i == 0) {
         all_flagged = parent[i].flagged;

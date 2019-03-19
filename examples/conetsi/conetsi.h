@@ -51,9 +51,9 @@ struct conetsi_node {
 struct parent_details {
   uip_ipaddr_t addr;
   uint32_t start_time;
+  uint32_t timeout;
   uint16_t backoff;
   uint16_t demand;
-  uint16_t timeout;
   uint16_t bytes;
   uint8_t flagged;
 };
@@ -79,9 +79,15 @@ struct join_request {
 #define SIZE_ACK       1
 #define SIZE_JOIN_REQ 19
 /*---------------------------------------------------------------------------*/
-/* functions for conversion */
-int ticks_msec(const int time_msec);
-int msec(const uint32_t ticks);
+/* macros for conversion */
+#define msec2ticks(x) ((x * CLOCK_SECOND) / 1000)
+#define ticks2msec(x) ((x * 1000) / CLOCK_SECOND)
+#define msec2rticks(x) ((x * RTIMER_SECOND) / 1000)
+#define rticks2msec(x) ((x * 1000) / RTIMER_SECOND)
+
+/* TODO: Possible overflow here */
+#define ticks2rticks(x) ((x * RTIMER_SECOND) / CLOCK_SECOND)
+#define rticks2ticks(x) ((x * CLOCK_SECOND) / RTIMER_SECOND)
 
 /* functions used by processes */
 int send_nsi(const uint8_t *buf, int buf_len);
@@ -97,10 +103,10 @@ int send_demand_adv(struct parent_details *parent);
 int send_ack(const uip_ipaddr_t *parent);
 
 /* Handshake step 3: Send multicast join request */
-int send_join_req(int exp_time);
+int send_join_req(uint32_t timeout);
 
 /* Get backoff time and demand */
-int get_backoff(int demand, int time_left);
+uint16_t get_backoff(uint16_t demand, uint32_t timeout_rticks);
 
 /* Get and set parent and child */
 void set_parent(const uip_ipaddr_t *p);

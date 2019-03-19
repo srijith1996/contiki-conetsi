@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------*/
 #include "contiki.h"
 #include "contiki-net.h"
+#include "net/ipv6/sicslowpan.h"
 
 #include "conetsi.h"
 #include "oam.h"
@@ -16,16 +17,6 @@ static struct simple_udp_connection nsi_conn;
 static uip_ipaddr_t mcast_addr;
 static uip_ipaddr_t host_addr;
 /*---------------------------------------------------------------------------*/
-int
-ticks_msec(const int time_msecs) {
-  return time_msecs * (CLOCK_SECOND / 1000.0);
-}
-/*---------------------------------------------------------------------------*/
-int
-msec(const uint32_t ticks) {
-  return (ticks / CLOCK_SECOND) * 1000.0;
-}
-/*---------------------------------------------------------------------------*/
 void
 reg_mcast_addr()
 {
@@ -40,38 +31,52 @@ reg_mcast_addr()
 int
 send_demand_adv(struct parent_details *parent)
 {
-  int i;
+  uint32_t delay, timeout;
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   struct nsi_demand *demand_buf = (void *) &(buf->data);
 
   /* These functions are defined in the OAM process */
   buf->type = TYPE_DEMAND_ADVERTISEMENT;
   demand_buf->demand = demand();
-  demand_buf->time_left = msec(get_nsi_timeout());
+  timeout = ticks2rticks(get_nsi_timeout());
   demand_buf->bytes = get_bytes();
 
   if(parent != NULL) {
     demand_buf->demand += parent->demand;
     demand_buf->bytes += parent->bytes;
     if(parent->timeout < demand_buf->time_left) {
-      demand_buf->time_left = parent->timeout;
+      timeout = parent->timeout;
     }
   }
 
   /* Convert to host order */
   HTONS(demand_buf->demand);
-  HTONS(demand_buf->time_left);
   HTONS(demand_buf->bytes);
-
-  LOG_INFO("Demand buffer ");
-  for(i=0; i<SIZE_DA; i++) {
-    LOG_INFO_("%02x:", *((uint8_t *)&conetsi_buf + i));
-  }
-  LOG_INFO_("\n");
 
   LOG_INFO("Sending DA to ");
   LOG_INFO_6ADDR(&mcast_addr);
   LOG_INFO_("\n");
+
+  /* subtract predicted delay incurred in TX */
+  delay = sicslowpan_avg_pertx_delay()
+          * sicslowpan_queue_len()
+          * sicslowpan_avg_tx_count();
+
+  timeout = timeout - delay;
+  demand_buf->time_left = rticks2msec(timeout);
+  HTONS(demand_buf->time_left);
+
+  /* WARN: comment this out if not necessary */
+  /* This printing loop will introduce delay */
+  /*
+  int i;
+  LOG_DBG("Demand buffer ");
+  for(i=0; i<SIZE_DA; i++) {
+    LOG_DBG_("%02x:", *((uint8_t *)&conetsi_buf + i));
+  }
+  LOG_DBG_("\n");
+  */
+
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_DA, &mcast_addr);
 
   return 0;
@@ -92,25 +97,39 @@ send_ack(const uip_ipaddr_t *parent)
 }
 /*---------------------------------------------------------------------------*/
 int
-send_join_req(int exp_time)
+send_join_req(uint32_t timeout)
 {
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   struct join_request *req = (void *) &(buf->data);
-  int i;
-
-  buf->type = TYPE_JOIN_REQUEST;
-  req->time_left = uip_htons(exp_time);
-  uip_ipaddr_copy(&(req->chosen_child), &(me.child_node));
-
-  LOG_INFO("Request buffer: ");
-  for(i=0; i<SIZE_JOIN_REQ; i++) {
-    LOG_INFO_("%02x:", *((uint8_t *)buf + i));
-  }
-  LOG_INFO_("\n");
+  uint32_t delay;
 
   LOG_INFO("Sending JOIN_REQ to ");
   LOG_INFO_6ADDR(&mcast_addr);
   LOG_INFO_("\n");
+
+  buf->type = TYPE_JOIN_REQUEST;
+  uip_ipaddr_copy(&(req->chosen_child), &(me.child_node));
+
+  /* subtract predicted delay incurred in TX */
+  delay = sicslowpan_avg_pertx_delay()
+          * sicslowpan_queue_len()
+          * sicslowpan_avg_tx_count();
+
+  timeout = timeout - delay;
+  req->time_left = rticks2msec(timeout);
+  HTONS(req->time_left);
+
+  /* WARN: comment this out if not necessary */
+  /* This printing loop will introduce delay */
+  /*
+  int i;
+  LOG_DBG("Request buffer: ");
+  for(i=0; i<SIZE_JOIN_REQ; i++) {
+    LOG_DBG_("%02x:", *((uint8_t *)buf + i));
+  }
+  LOG_DBG_("\n");
+  */
+
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_JOIN_REQ, &mcast_addr);
   return 0;
 }
@@ -184,34 +203,34 @@ get_child()
   return &(me.child_node);
 }
 /*---------------------------------------------------------------------------*/
-int
-get_backoff(int demand, int timeout_ticks)
+uint16_t
+get_backoff(uint16_t demand, uint32_t timeout_rticks)
 {
   /* Strictly lesser than time left */
-  LOG_DBG("Computing backoff: %d, %d", demand, timeout_ticks);
+  LOG_DBG("Computing backoff: %d, %lu", demand, timeout_rticks);
 
   /* wait for the entire duration if I have nothing to send */
   if(demand == 0) {
     LOG_DBG_("\n");
-    return timeout_ticks;
+    return timeout_rticks;
   }
-  /* timeout_ticks /= (BACKOFF_DIV_FACTOR * demand); */
-  timeout_ticks = ((MAX_DEMAND - demand) * timeout_ticks) /
+  /* timeout_rticks /= (BACKOFF_DIV_FACTOR * demand); */
+  timeout_rticks = ((MAX_DEMAND - demand) * timeout_rticks) /
                   (BACKOFF_DIV_FACTOR * MAX_DEMAND);
 
   /* Break ties randomly */
   int rand_ticks = (random_rand() % (2 * BACKOFF_RAND_RANGE));
 
-  if(timeout_ticks <= 0) {
-    timeout_ticks = rand_ticks;
+  if(timeout_rticks <= 0) {
+    timeout_rticks = rand_ticks;
   } else {
     rand_ticks -= BACKOFF_RAND_RANGE;  /* range [-RAND_RANGE, RAND_RANGE-1] */
-    timeout_ticks += rand_ticks;
+    timeout_rticks += rand_ticks;
   }
 
-  LOG_DBG_(", %d\n", timeout_ticks);
-  LOG_INFO("Obtained backoff: %d\n", timeout_ticks);
+  LOG_DBG_(", %lu\n", timeout_rticks);
+  LOG_INFO("Obtained backoff: %lu\n", timeout_rticks);
 
-  return timeout_ticks;
+  return (uint16_t)timeout_rticks;
 }
 /*---------------------------------------------------------------------------*/
