@@ -238,19 +238,24 @@ parse_nsi:
 
       init_exp_time = RTIMER_NOW();
       exp_time = msec2rticks(pkt_data->time_left);
-      LOG_DBG("Timeout in JREQ: %d\n", exp_time);
 
-      if(rticks2ticks(exp_time) < THRESHOLD_TIMEOUT_TICKS) {
-        LOG_DBG("Timeout threshold reached\n");
-        send_nsi(NULL, 0);
-        current_state = STATE_IDLE;
-      } else {
+      /* start count-down */
+      ctimer_set(&idle_timer, msec2ticks(pkt_data->time_left),
+                 reset_idle, NULL);
+
+      set_parent(sender_addr);
+
+      LOG_DBG("Timeout in JREQ: %d\n", pkt_data->time_left);
+      LOG_DBG("Timeout threshold: %d\n", THRESHOLD_TIMEOUT_TICKS);
+      if(msec2ticks(pkt_data->time_left) > THRESHOLD_TIMEOUT_TICKS) {
+        LOG_DBG("Timeout threshold not yet reached\n");
         parent[my_parent_id].timeout = exp_time;
         send_demand_adv(&parent[my_parent_id]);
         current_state = STATE_DEMAND_ADVERTISED;
-
-        /* start count-down */
-        ctimer_set(&idle_timer, rticks2ticks(exp_time), reset_idle, NULL);
+      } else {
+        LOG_DBG("Timeout threshold reached\n");
+        ctimer_stop(&idle_timer);
+        reset_idle();
       }
     }
     break;
