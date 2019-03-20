@@ -220,8 +220,15 @@ parse_nsi:
 
    case STATE_AWAITING_JOIN_REQ:
     if(pkt->type == TYPE_JOIN_REQUEST) {
-      ctimer_stop(&idle_timer);
-      set_parent(sender_addr);
+      /* check if join request is for me */
+      if(!my_join_req(pkt->data)) {
+        LOG_INFO("My parent ");
+        LOG_INFO_6ADDR(&parent[i].addr);
+        LOG_INFO_(" chose ");
+        LOG_INFO_6ADDR(&(((struct join_request *)&pkt->data)->chosen_child));
+        LOG_INFO_("  :(  \n");
+        break;
+      }
 
       /* path length will not run out here due to additional
        * condition taken care of in STATE_IDLE case
