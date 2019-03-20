@@ -135,6 +135,11 @@ udp_rx_callback(struct simple_udp_connection *c,
       LOG_INFO_("\n");
 
       add_parent(sender_addr, (void *)pkt->data);
+
+    /* while idling forward any stray NSI */
+    } else if(pkt->type == TYPE_NSI) {
+      set_parent(NULL);
+      send_nsi((void *)&conetsi_data, datalen);
     }
     break;
 
