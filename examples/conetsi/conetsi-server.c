@@ -290,19 +290,21 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
         /* set my parent as NULL */
         set_parent(NULL);
 
-        if(get_bytes() >= MARGINAL_PKT_SIZE) {
+        if(get_bytes() >= MARGINAL_PKT_SIZE ||
+           get_nsi_timeout() <= THRESHOLD_TIMEOUT_TICKS) {
           send_nsi(NULL, 0);
         } else {
           send_demand_adv(NULL);
 
           init_exp_time = RTIMER_NOW();
-          exp_time = ticks2rticks(get_nsi_timeout());
-          LOG_INFO("Timeout: %d\n", exp_time);
-
+          exp_time = get_nsi_timeout();
+          ctimer_set(&idle_timer, exp_time, reset_idle, NULL);
           current_state = STATE_DEMAND_ADVERTISED;
-          ctimer_set(&idle_timer, rticks2ticks(exp_time), reset_idle, NULL);
-        }
 
+          LOG_INFO("Timeout ticks: %ld\n", exp_time);
+          exp_time = ticks2rticks(get_nsi_timeout());
+          LOG_INFO("Timeout rtimer ticks: %ld\n", exp_time);
+        }
       }
     }
   }
@@ -317,6 +319,8 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
 PROCESS_THREAD(backoff_polling_process, ev, data)
 {
   PROCESS_BEGIN();
+
+  LOG_INFO("Rtimer second: %ld\n", RTIMER_SECOND);
 
   /* TODO: ACK should be sent to multiple parent */
 
