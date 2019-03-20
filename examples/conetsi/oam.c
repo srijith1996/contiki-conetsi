@@ -61,7 +61,11 @@ global_priority_lin(int id, int priority)
         * (LOWEST_PRIORITY - config_priority(id)))
       / (LOWEST_PRIORITY - HIGHEST_PRIORITY);
 
-  LOG_DBG("Global Priority(%d): %d\n", id, ret);
+  /* Priority should be hard bound */
+  ret = (ret < HIGHEST_PRIORITY) ? HIGHEST_PRIORITY : ret;
+  ret = (ret > LOWEST_PRIORITY) ? LOWEST_PRIORITY : ret;
+
+  LOG_DBG("Global Priority lin(%d): %d\n", id, ret);
 
   return ret;
 }
@@ -85,10 +89,9 @@ global_priority_ray(int id, int priority)
 
   ret = ret * priority;
 
-  /* avoid lesser than 1 priority */
-  if(ret <= 1) {
-    ret = 1;
-  }
+  /* Priority should be hard bound */
+  ret = (ret < HIGHEST_PRIORITY) ? HIGHEST_PRIORITY : ret;
+  ret = (ret > LOWEST_PRIORITY) ? LOWEST_PRIORITY : ret;
 
   LOG_DBG("Global Priority(%d): %d\n", id, ret);
 
