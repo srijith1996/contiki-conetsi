@@ -179,19 +179,32 @@ udp_rx_callback(struct simple_udp_connection *c,
     break;
 
    case STATE_DEMAND_ADVERTISED:
-      /* prepare and send join step 3 packet */
-      set_child(sender_addr);
-      send_join_req(init_exp_time + exp_time - RTIMER_NOW());
+    if(pkt->type != TYPE_ACK && pkt->type != TYPE_NSI) {
+      break;
+    }
+
+    LOG_INFO("Received ACK/NSI from ");
+    LOG_INFO_6ADDR(sender_addr);
+    LOG_INFO_("\n");
+
+    if(pkt->type == TYPE_ACK
+        && rticks2ticks(init_exp_time + exp_time - RTIMER_NOW())
+            <= THRESHOLD_TIMEOUT_TICKS) {
+      ctimer_stop(&idle_timer);
+      reset_idle();
+      break;
+    }
+
+    /* prepare and send join step 3 packet */
+    set_child(sender_addr);
+    send_join_req(init_exp_time + exp_time - RTIMER_NOW());
 
     if(pkt->type == TYPE_ACK) {
       current_state = STATE_CHILD_CHOSEN;
-      LOG_INFO("Received ACK from ");
-      LOG_INFO_6ADDR(sender_addr);
-      LOG_INFO_("\n");
     } else if(pkt->type == TYPE_NSI) {
       goto parse_nsi;
     }
-      
+
     break;
 
    case STATE_CHILD_CHOSEN:
