@@ -35,8 +35,6 @@
 #define BACKOFF_DIV_FACTOR    THRESHOLD_PATH_LEN * 3
 #define BACKOFF_RAND_RANGE    10
 #define BACKOFF_POLL_INTERVAL 5
-#define MAX_DEMAND       (THRESHOLD_PKT_SIZE / \
-                         (HIGHEST_PRIORITY * THRESHOLD_TIMEOUT_TICKS))
 
 #define MAX_PARENT_REQ        5
 /*---------------------------------------------------------------------------*/
@@ -52,7 +50,7 @@ struct parent_details {
   uip_ipaddr_t addr;
   uint32_t start_time;
   uint32_t timeout;
-  uint16_t backoff;
+  uint32_t backoff;
   uint16_t demand;
   uint16_t bytes;
   uint8_t flagged;
@@ -104,9 +102,10 @@ int send_ack(const uip_ipaddr_t *parent);
 
 /* Handshake step 3: Send multicast join request */
 int send_join_req(uint32_t timeout);
+int my_join_req(void *pkt);
 
 /* Get backoff time and demand */
-uint16_t get_backoff(uint16_t demand, uint32_t timeout_rticks);
+uint32_t get_backoff(uint16_t demand, uint32_t timeout_rticks);
 
 /* Get and set parent and child */
 void set_parent(const uip_ipaddr_t *p);

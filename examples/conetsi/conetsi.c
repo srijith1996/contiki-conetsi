@@ -112,9 +112,10 @@ send_join_req(uint32_t timeout)
 
   /* subtract predicted delay incurred in TX */
   delay = sicslowpan_avg_pertx_delay()
-          * sicslowpan_queue_len()
+          * (sicslowpan_queue_len() + 1)
           * sicslowpan_avg_tx_count();
 
+  LOG_DBG("Predicted TX delay: %d\n", delay);
   timeout = timeout - delay;
   req->time_left = rticks2msec(timeout);
   HTONS(req->time_left);
@@ -150,9 +151,9 @@ send_nsi(const uint8_t *buf, int buf_len)
   add_len += 1;
 
   if(buf != NULL) {
-    memcpy(&conetsi_buf + add_len, buf + 1, buf_len - 1);
+    memcpy(conetsi_buf + add_len, buf + 1, buf_len - 1);
+    tmp = *((uint8_t *)(conetsi_buf + add_len)) + 1;
     add_len += buf_len - 1;
-    tmp = *((uint8_t *)(&conetsi_buf + add_len)) + 1;
     LOG_INFO("Number of hops: %d\n", tmp);
 
   } else {
@@ -161,18 +162,33 @@ send_nsi(const uint8_t *buf, int buf_len)
     buf_len = 1;
     add_len += 1;
   }
-  memcpy((void *)&conetsi_buf + 1, &tmp, 1);
+  memcpy(conetsi_buf + 1, &tmp, 1);
 
-  memcpy((void *)&conetsi_buf + add_len, &uip_lladdr, LINKADDR_SIZE);
+  memcpy(conetsi_buf + add_len, &uip_lladdr, LINKADDR_SIZE);
   add_len += LINKADDR_SIZE;
 
   /* Add my NSI data */
-  add_len += oam_string((void *)&conetsi_buf + add_len);
+  add_len += oam_string(conetsi_buf + add_len);
+
+  int i;
+  LOG_DBG("Length of NSI: %d\n", add_len);
+  LOG_DBG("Sending NSI packet: ");
+  for(i = 0; i < add_len; i++) {
+    LOG_DBG_("%02x:", *((uint8_t *)conetsi_buf + i));
+  }
+  LOG_DBG_("\n");
 
   /* Send NSI to parent */
   simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &me.parent_node);
 
   return add_len;
+}
+/*---------------------------------------------------------------------------*/
+int
+my_join_req(void *pkt)
+{
+  struct join_request *req = pkt;
+  return uip_ds6_is_my_addr(&(req->chosen_child));
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -203,18 +219,12 @@ get_child()
   return &(me.child_node);
 }
 /*---------------------------------------------------------------------------*/
-uint16_t
+uint32_t
 get_backoff(uint16_t demand, uint32_t timeout_rticks)
 {
   /* Strictly lesser than time left */
   LOG_DBG("Computing backoff: %d, %lu", demand, timeout_rticks);
 
-  /* wait for the entire duration if I have nothing to send */
-  if(demand == 0) {
-    LOG_DBG_("\n");
-    return timeout_rticks;
-  }
-  /* timeout_rticks /= (BACKOFF_DIV_FACTOR * demand); */
   timeout_rticks = ((MAX_DEMAND - demand) * timeout_rticks) /
                   (BACKOFF_DIV_FACTOR * MAX_DEMAND);
 

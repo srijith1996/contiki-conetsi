@@ -112,7 +112,7 @@ demand()
   }
 
   int demand = DEMAND_FACTOR * oam_buf_state.bytes;
-  demand *= (LOWEST_PRIORITY - oam_buf_state.priority) * 100;
+  demand *= (LOWEST_PRIORITY - oam_buf_state.priority);
   demand /= timer_remaining(oam_buf_state.exp_timer);
 
   LOG_DBG("Demand computation: %d, %d, %lu, %d\n", DEMAND_FACTOR,
@@ -308,7 +308,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
       if(modules[i].data != NULL) {
         break;
       }
-      LOG_INFO("Polling module %d for value\n", i);
+      LOG_INFO("Polling module %d for value\n", modules[i].id);
 
       /* get the current module's value */
       modules[i].get_val(&return_val);
@@ -341,7 +341,9 @@ PROCESS_THREAD(oam_collect_process, ev, data)
     }
 
     if(demand() > THRESHOLD_DEMAND) {
-      LOG_INFO("Waking CoNetSI\n");
+      LOG_INFO("Waking CoNetSI");
+      LOG_DBG_(" (Threshold: %d, MAX: %d)", THRESHOLD_DEMAND, MAX_DEMAND);
+      LOG_INFO_("\n");
       process_post(&conetsi_server_process, genesis_event, &oam_buf_state);
     }
   }

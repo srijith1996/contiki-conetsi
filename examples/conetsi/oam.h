@@ -3,8 +3,7 @@
 #define _OAM_H_
 /*---------------------------------------------------------------------------*/
 /* threshold defines */
-#define THRESHOLD_PRIORITY 30
-#define THRESHOLD_DEMAND   150
+#define THRESHOLD_PRIORITY 40
 /*---------------------------------------------------------------------------*/
 #define OAM_POLL_INTERVAL   (5 * CLOCK_SECOND)
 #define MAX_OAM_ENTRIES     10
@@ -32,10 +31,16 @@
 #define global_priority(...) global_priority_lin(__VA_ARGS__)
 #endif /* CONF_PRIORITY */
 /*---------------------------------------------------------------------------*/
-#define DEMAND_FACTOR    CLOCK_SECOND / 100
+#define DEMAND_FACTOR    (CLOCK_SECOND / LOWEST_PRIORITY)
 #define THRESHOLD_PKT_SIZE       90
-#define THRESHOLD_TIMEOUT_MSEC   20
-#define THRESHOLD_TIMEOUT_TICKS  THRESHOLD_TIMEOUT_MSEC * CLOCK_SECOND / 1000
+#define THRESHOLD_TIMEOUT_MSEC   1000
+#define THRESHOLD_TIMEOUT_TICKS ((THRESHOLD_TIMEOUT_MSEC * CLOCK_SECOND)/1000)
+/*---------------------------------------------------------------------------*/
+#define MAX_DEMAND       ((DEMAND_FACTOR                            \
+                        * THRESHOLD_PKT_SIZE                       \
+                        * (LOWEST_PRIORITY - HIGHEST_PRIORITY))    \
+                        / THRESHOLD_TIMEOUT_TICKS)
+#define THRESHOLD_DEMAND   (MAX_DEMAND / 20)
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint16_t bytes;
