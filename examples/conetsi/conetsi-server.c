@@ -16,12 +16,12 @@
 /*---------------------------------------------------------------------------*/
 static uint8_t current_state;
 static uint8_t listen_flag, yield, all_flagged;
-static uint16_t exp_time;
+static uint32_t exp_time;
 static uint32_t init_exp_time;
 static uint8_t my_parent_id;
 
 static struct parent_details parent[MAX_PARENT_REQ];
-static int count, i;
+static int count, i, prev_demand;
 
 static char conetsi_data[THRESHOLD_PKT_SIZE];
 
@@ -290,6 +290,9 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
 
   /* TODO: ACK should be sent to multiple parent */
 
+  /* invalidate prev_demand */
+  prev_demand = -1;
+
   /* Change the context to conetsi process to avoid blocking
    * the UDP callback process */
   while(1) {
@@ -307,11 +310,14 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
 
       LOG_DBG("Parent start time: %ld\n", parent[i].start_time);
 
-      parent[i].backoff = get_backoff(demand(), parent[i].timeout);
-      LOG_DBG("Parent backoff: %d\n", parent[i].backoff);
-      LOG_DBG("Time now: %ld\n", clock_time());
-      LOG_DBG("Time left: %lu\n", (parent[i].start_time
-                                 + parent[i].backoff - clock_time()));
+      if(demand() != prev_demand) {
+        prev_demand = demand();
+        parent[i].backoff = get_backoff(prev_demand, parent[i].timeout);
+        LOG_DBG("Parent backoff: %d\n", parent[i].backoff);
+        LOG_DBG("Time now: %ld\n", RTIMER_NOW());
+        LOG_DBG("Time left: %ld\n", (parent[i].start_time
+                                 + parent[i].backoff - RTIMER_NOW()));
+      }
 
       yield &= (parent[i].flagged || (RTIMER_NOW() <
                     parent[i].start_time + parent[i].backoff));
@@ -352,6 +358,9 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
                    reset_idle, NULL);
       }
       count = 0;
+
+      /* invalidate prev_demand */
+      prev_demand = -1;
     }
   }
   LOG_DBG("Exiting backoff\n");
