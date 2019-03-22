@@ -186,6 +186,7 @@ cleanup(void *mod)
   oam_buf_state.bytes -= module->bytes;
   oam_buf_state.bytes -= OAM_ENTRY_BASE_SIZE;
 
+  module->lock = 1;
   module->bytes = 0;
   module->priority = LOWEST_PRIORITY;
   module->data = NULL;
@@ -203,21 +204,25 @@ oam_string(char *buf)
   int ctr = 0;
   int i;
 
-  sprintf(buf, "%c", (uint8_t) oam_buf_state.bytes);
+  sprintf(buf, "%c", (uint8_t)(oam_buf_state.bytes - LINKADDR_SIZE - 1));
   ctr += 1;
     
   /* TODO: Always store module data in network byte order */
   for(i = 0; i < count; i++) {
-    memcpy((buf + ctr), &(modules[i].id), 1);
-    ctr += 1;
-    memcpy((buf + ctr), &(modules[i].bytes), 1);
-    ctr += 1;
-    memcpy((buf + ctr), &(modules[i].data), modules[i].bytes);
-    ctr += modules[i].bytes;
 
-    /* notify the modules to reset counters */
-    modules[i].reset();
-    cleanup(&modules[i]);
+    /* Lock will prevent cleaned up data from being recorded */
+    if(!modules[i].lock) {
+      memcpy((buf + ctr), &(modules[i].id), 1);
+      ctr += 1;
+      memcpy((buf + ctr), &(modules[i].bytes), 1);
+      ctr += 1;
+      memcpy((buf + ctr), &(modules[i].data), modules[i].bytes);
+      ctr += modules[i].bytes;
+
+      /* notify the modules to reset counters */
+      modules[i].reset();
+      cleanup(&modules[i]);
+    }
   }
 
   return ctr;
@@ -233,6 +238,7 @@ register_oam(int oam_id,
              int (* stop_callback) (void))
 {
   modules[count].id = oam_id;
+  modules[i].lock = 1;
 
   modules[count].get_val = value_callback;
   modules[count].reset = reset_callback;
@@ -263,6 +269,7 @@ unregister_oam(int oam_id)
 
       /* copy last element to this location */
       modules[i].id = modules[count - 1].id;
+      modules[i].lock = modules[count - 1].lock;
 
       modules[i].get_val = modules[count - 1].get_val;
       modules[i].reset = modules[count - 1].reset;
@@ -285,7 +292,8 @@ PROCESS_THREAD(oam_collect_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  oam_buf_state.bytes = LINKADDR_SIZE;
+  /* One byte for the size field */
+  oam_buf_state.bytes = LINKADDR_SIZE + 1;
   oam_buf_state.priority = LOWEST_PRIORITY;
   oam_buf_state.exp_timer = NULL;
 
@@ -337,6 +345,9 @@ PROCESS_THREAD(oam_collect_process, ev, data)
         if(oam_buf_state.priority > modules[i].priority) {
           oam_buf_state.priority = modules[i].priority;
         }
+
+        /* release lock to this module */
+        modules[i].lock = 0;
       }
     }
 

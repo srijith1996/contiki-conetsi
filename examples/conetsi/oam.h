@@ -57,6 +57,7 @@ struct oam_val {
 /*---------------------------------------------------------------------------*/
 struct oam_module {
   uint16_t id;
+  uint16_t lock;
   uint16_t bytes;
   uint16_t priority;
   struct ctimer exp_timer;
