@@ -218,9 +218,9 @@ static int last_tx_status;
 static int last_rssi;
 
 /* CUSTOM: Variables to record delay */
-#define ETX_DEFAULT     2
-#define DELAY_DEFAULT 100
 #include "sys/rtimer.h"
+#define ETX_DEFAULT     2
+#define DELAY_DEFAULT   RTIMER_SECOND
 struct tx_delay_struct {
   int lock;
   uint32_t start;
@@ -228,7 +228,7 @@ struct tx_delay_struct {
   uint16_t queue_len;
   uint16_t tx_count;
 };
-#define TX_DELAY_ARR_SIZE 16
+#define TX_DELAY_ARR_SIZE 20
 static struct tx_delay_struct tx_delay_arr[TX_DELAY_ARR_SIZE];
 static uint8_t idx;
 uint8_t prev_transmissions;
