@@ -115,7 +115,7 @@ demand()
   demand *= (LOWEST_PRIORITY - oam_buf_state.priority);
   demand /= timer_remaining(oam_buf_state.exp_timer);
 
-  LOG_DBG("Demand computation: %d, %d, %lu, %d\n", DEMAND_FACTOR,
+  LOG_DBG("Demand computation: df=%d, B=%d, T=%lu, P=%d\n", DEMAND_FACTOR,
          oam_buf_state.bytes,
          timer_remaining(oam_buf_state.exp_timer),
          oam_buf_state.priority);

@@ -302,7 +302,7 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
           current_state = STATE_DEMAND_ADVERTISED;
 
           LOG_INFO("Timeout ticks: %ld\n", exp_time);
-          exp_time = ticks2rticks(get_nsi_timeout());
+          exp_time = ticks2rticks(exp_time);
           LOG_INFO("Timeout rtimer ticks: %ld\n", exp_time);
         }
       }

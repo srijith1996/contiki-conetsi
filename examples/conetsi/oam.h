@@ -40,7 +40,7 @@
                         * THRESHOLD_PKT_SIZE                       \
                         * (LOWEST_PRIORITY - HIGHEST_PRIORITY))    \
                         / THRESHOLD_TIMEOUT_TICKS)
-#define THRESHOLD_DEMAND   (MAX_DEMAND / 20)
+#define THRESHOLD_DEMAND   (MAX_DEMAND / 40)
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint16_t bytes;

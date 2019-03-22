@@ -62,6 +62,8 @@ send_demand_adv(struct parent_details *parent)
           * sicslowpan_queue_len()
           * sicslowpan_avg_tx_count();
 
+  delay += DELAY_GUARD_TIME_RTICKS;
+
   timeout = timeout - delay;
   demand_buf->time_left = rticks2msec(timeout);
   HTONS(demand_buf->time_left);
@@ -114,6 +116,8 @@ send_join_req(uint32_t timeout)
   delay = sicslowpan_avg_pertx_delay()
           * (sicslowpan_queue_len() + 1)
           * sicslowpan_avg_tx_count();
+
+  delay += DELAY_GUARD_TIME_RTICKS;
 
   LOG_DBG("Predicted TX delay: %d\n", delay);
   timeout = timeout - delay;

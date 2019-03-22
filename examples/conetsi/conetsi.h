@@ -39,6 +39,13 @@
 #define MAX_PARENT_REQ        5
 /*---------------------------------------------------------------------------*/
 #define AWAITING_JOIN_REQ_IDLE_TIMEOUT  (CLOCK_SECOND * 5)
+
+/* Configure how conservative the nodes should
+ * be about the delay incurred in transmission
+ * and queues, above and beyond the estimated
+ * delay.
+ */
+#define DELAY_GUARD_TIME_RTICKS    RTIMER_SECOND / 10
 /*---------------------------------------------------------------------------*/
 /* packet structs */
 struct conetsi_node {
