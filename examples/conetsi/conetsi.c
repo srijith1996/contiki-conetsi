@@ -11,6 +11,7 @@
 #define LOG_LEVEL LOG_LEVEL_CONETSI
 /*---------------------------------------------------------------------------*/
 char conetsi_buf[THRESHOLD_PKT_SIZE];
+static int child_ct;
 
 struct conetsi_node me;
 static struct simple_udp_connection nsi_conn;
@@ -42,14 +43,18 @@ send_demand_adv(struct parent_details *parent)
   demand_buf->bytes = get_bytes();
 
   if(parent != NULL) {
+    uip_ipaddr_copy(&(demand_buf->parent_addr), &(parent->addr));
     demand_buf->demand += parent->demand;
     demand_buf->bytes += parent->bytes;
-    if(parent->timeout < demand_buf->time_left) {
+    if(parent->timeout < timeout) {
       timeout = parent->timeout;
     }
+  } else {
+    /* copy an invalid all zeros address */
+    uip_ip6addr(&(demand_buf->parent_addr), 0, 0, 0, 0, 0, 0, 0, 0);
   }
 
-  /* Convert to host order */
+  /* Convert to network order */
   HTONS(demand_buf->demand);
   HTONS(demand_buf->bytes);
 
@@ -85,61 +90,6 @@ send_demand_adv(struct parent_details *parent)
 }
 /*---------------------------------------------------------------------------*/
 int
-send_ack(const uip_ipaddr_t *parent)
-{
-  struct conetsi_pkt *buf = (void *) &conetsi_buf;
-  
-  buf->type = TYPE_ACK;
-  LOG_INFO("Sending ACK to ");
-  LOG_INFO_6ADDR(parent);
-  LOG_INFO_("\n");
-  simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_ACK, parent);
-
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
-int
-send_join_req(uint32_t timeout)
-{
-  struct conetsi_pkt *buf = (void *) &conetsi_buf;
-  struct join_request *req = (void *) &(buf->data);
-  uint32_t delay;
-
-  LOG_INFO("Sending JOIN_REQ to ");
-  LOG_INFO_6ADDR(&mcast_addr);
-  LOG_INFO_("\n");
-
-  buf->type = TYPE_JOIN_REQUEST;
-  uip_ipaddr_copy(&(req->chosen_child), &(me.child_node));
-
-  /* subtract predicted delay incurred in TX */
-  delay = sicslowpan_avg_pertx_delay()
-          * (sicslowpan_queue_len() + 1)
-          * sicslowpan_avg_tx_count();
-
-  delay += DELAY_GUARD_TIME_RTICKS;
-
-  LOG_DBG("Predicted TX delay: %d\n", delay);
-  timeout = timeout - delay;
-  req->time_left = rticks2msec(timeout);
-  HTONS(req->time_left);
-
-  /* WARN: comment this out if not necessary */
-  /* This printing loop will introduce delay */
-  /*
-  int i;
-  LOG_DBG("Request buffer: ");
-  for(i=0; i<SIZE_JOIN_REQ; i++) {
-    LOG_DBG_("%02x:", *((uint8_t *)buf + i));
-  }
-  LOG_DBG_("\n");
-  */
-
-  simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_JOIN_REQ, &mcast_addr);
-  return 0;
-}
-/*---------------------------------------------------------------------------*/
-int
 send_nsi(const uint8_t *buf, int buf_len)
 {
   /* first byte of buf is the length */
@@ -150,23 +100,36 @@ send_nsi(const uint8_t *buf, int buf_len)
   LOG_INFO_6ADDR(&me.parent_node);
   LOG_INFO_("\n");
 
+  /* copy type information */
   tmp = TYPE_NSI;
   memcpy(&conetsi_buf, &tmp, 1);
   add_len += 1;
 
+  /* copy receiver parent address only if I'm not genesis */
+  if(!uip_ipaddr_cmp(&me.parent_node, &host_addr)) {
+    struct nsi_forward *nsi_info = (struct nsi_forward *)(conetsi_buf + 1);
+    uip_ipaddr_copy(&(nsi_info->to), &me.parent_node);
+    add_len += sizeof(uip_ipaddr_t);
+  }
+
   if(buf != NULL) {
-    memcpy(conetsi_buf + add_len, buf + 1, buf_len - 1);
+    memcpy(conetsi_buf + add_len, buf + add_len, buf_len - add_len);
+
+    /* increment hop count in packet */
     tmp = *((uint8_t *)(conetsi_buf + add_len)) + 1;
-    add_len += buf_len - 1;
     LOG_INFO("Number of hops: %d\n", tmp);
+
+    memcpy(conetsi_buf + add_len, &tmp, 1);
+    add_len = buf_len;
 
   } else {
     /* if the buf is empty, I must initiate the NSI packet */
     tmp = 1;
-    buf_len = 1;
+
+    memcpy(conetsi_buf + add_len, &tmp, 1);
     add_len += 1;
+    buf_len = 1;
   }
-  memcpy(conetsi_buf + 1, &tmp, 1);
 
   memcpy(conetsi_buf + add_len, &uip_lladdr, LINKADDR_SIZE);
   add_len += LINKADDR_SIZE;
@@ -183,16 +146,13 @@ send_nsi(const uint8_t *buf, int buf_len)
   LOG_DBG_("\n");
 
   /* Send NSI to parent */
-  simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &me.parent_node);
+  if(uip_ipaddr_cmp(&me.parent_node, &host_addr)) {
+    simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &host_addr);
+  } else {
+    simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &mcast_addr);
+  }
 
   return add_len;
-}
-/*---------------------------------------------------------------------------*/
-int
-my_join_req(void *pkt)
-{
-  struct join_request *req = pkt;
-  return uip_ds6_is_my_addr(&(req->chosen_child));
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -212,15 +172,16 @@ get_parent()
 }
 /*---------------------------------------------------------------------------*/
 void
-set_child(const uip_ipaddr_t *c)
+add_child(const uip_ipaddr_t *c)
 {
-  uip_ipaddr_copy(&(me.child_node), c);
+  uip_ipaddr_copy(&(me.child_node[child_ct]), c);
+  child_ct++;
 }
 /*---------------------------------------------------------------------------*/
-uip_ipaddr_t *
-get_child()
+int
+child_count(void)
 {
-  return &(me.child_node);
+  return child_ct;
 }
 /*---------------------------------------------------------------------------*/
 uint32_t

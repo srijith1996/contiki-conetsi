@@ -86,17 +86,14 @@ reset_idle()
   switch(current_state) {
 
    case STATE_DEMAND_ADVERTISED:
-   case STATE_CHILD_CHOSEN:
     send_nsi(NULL, 0);
     break;
 
    case STATE_IDLE:
    case STATE_BACKOFF:
-   case STATE_AWAITING_JOIN_REQ:
    default:
     break;
   }
-  my_parent_id = MAX_PARENT_REQ;
   current_state = STATE_IDLE;
 }
 /*---------------------------------------------------------------------------*/
@@ -155,24 +152,7 @@ udp_rx_callback(struct simple_udp_connection *c,
     break;
 
    case STATE_BACKOFF:
-    if(pkt->type == TYPE_JOIN_REQUEST) {
-
-      LOG_INFO("Received JR from ");
-      LOG_INFO_6ADDR(sender_addr);
-      LOG_INFO_("\n");
-
-      for(i = 0; i < count; i++) {
-        if(uip_ipaddr_cmp(sender_addr, &parent[i].addr)) {
-          parent[i].flagged = 1;
-          LOG_INFO("My parent ");
-          LOG_INFO_6ADDR(&parent[i].addr);
-          LOG_INFO_(" chose ");
-          LOG_INFO_6ADDR(&(((struct join_request *)&pkt->data)->chosen_child));
-          LOG_INFO_("  :(  \n");
-          break;
-        }
-      }
-    } else if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
+    if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
       /* if listen_flag = 1, the demand adv is ignored without checking
        * the value of count. Only if it is zero will the count be checked
        */
@@ -180,93 +160,57 @@ udp_rx_callback(struct simple_udp_connection *c,
       LOG_INFO_6ADDR(sender_addr);
       LOG_INFO_("\n");
 
+      /* Add the child as a new parent and continue */
+      uint8_t id;
+      struct nsi_demand *dmnd = (void *)pkt->data;
+      if((id = id_parent(&dmnd->parent_addr)) >= 0) {
+        LOG_INFO(" ");
+        LOG_INFO_6ADDR(sender_addr);
+        LOG_INFO_(" already forwarded ");
+        LOG_INFO_6ADDR(&parent[id].addr);
+        LOG_INFO_("'s request\n");
+        parent[id].flagged = 1;
+      }
+
       if(listen_flag || count >= MAX_PARENT_REQ) {
         LOG_DBG("Ignoring further Demand advertisements");
         listen_flag = 1;
       } else {
         add_parent(sender_addr, (void *)pkt->data);
       }
+    } else if(pkt->type == TYPE_NSI) {
+      uint8_t id;
+      struct nsi_forward *nsi = (void *)pkt->data;
+      if((id = id_parent(&(nsi->to))) >= 0) {
+        parent[id].flagged = 1;
+      }
     }
     break;
 
    case STATE_DEMAND_ADVERTISED:
-    if(pkt->type != TYPE_ACK && pkt->type != TYPE_NSI) {
-      break;
-    }
 
-    LOG_INFO("Received ACK/NSI from ");
-    LOG_INFO_6ADDR(sender_addr);
-    LOG_INFO_("\n");
-
-    if(pkt->type == TYPE_ACK
-        && rticks2ticks(init_exp_time + exp_time - RTIMER_NOW())
-            <= THRESHOLD_TIMEOUT_TICKS) {
-      ctimer_stop(&idle_timer);
-      reset_idle();
-      break;
-    }
-
-    /* prepare and send join step 3 packet */
-    set_child(sender_addr);
-    send_join_req(init_exp_time + exp_time - RTIMER_NOW());
-
-    if(pkt->type == TYPE_ACK) {
-      current_state = STATE_CHILD_CHOSEN;
-    } else if(pkt->type == TYPE_NSI) {
-      goto parse_nsi;
-    }
-
-    break;
-
-   case STATE_CHILD_CHOSEN:
-    /* timeout should result in sending nsi to parent */
     if(pkt->type == TYPE_NSI) {
-parse_nsi:
-      LOG_DBG("Preparing NSI...\n");
-      ctimer_stop(&idle_timer);
-      send_nsi((void *)&conetsi_data, datalen);
-      current_state = STATE_IDLE;
-    }
-    break;
-
-   case STATE_AWAITING_JOIN_REQ:
-    if(pkt->type == TYPE_JOIN_REQUEST) {
-      /* check if join request is for me */
-      if(!my_join_req(pkt->data)) {
-        LOG_INFO("My parent ");
-        LOG_INFO_6ADDR(&parent[i].addr);
-        LOG_INFO_(" chose ");
-        LOG_INFO_6ADDR(&(((struct join_request *)&pkt->data)->chosen_child));
-        LOG_INFO_("  :(  \n");
-        break;
-      }
-
-      /* path length will not run out here due to additional
-       * condition taken care of in STATE_IDLE case
-       */
-      struct join_request *pkt_data = (struct join_request *)(pkt->data);
-      NTOHS(pkt_data->time_left);
-
-      init_exp_time = RTIMER_NOW();
-      exp_time = msec2rticks(pkt_data->time_left);
-
-      /* start count-down */
-      ctimer_set(&idle_timer, msec2ticks(pkt_data->time_left),
-                 reset_idle, NULL);
-
-      set_parent(sender_addr);
-
-      LOG_DBG("Timeout in JREQ: %d\n", pkt_data->time_left);
-      LOG_DBG("Timeout threshold: %d\n", THRESHOLD_TIMEOUT_TICKS);
-      if(msec2ticks(pkt_data->time_left) > THRESHOLD_TIMEOUT_TICKS) {
-        LOG_DBG("Timeout threshold not yet reached\n");
-        parent[my_parent_id].timeout = exp_time;
-        send_demand_adv(&parent[my_parent_id]);
-        current_state = STATE_DEMAND_ADVERTISED;
-      } else {
-        LOG_DBG("Timeout threshold reached\n");
+      struct nsi_forward *nsi = (void *)pkt->data;
+      if(uip_ds6_is_my_addr(&(nsi->to))) {
         ctimer_stop(&idle_timer);
-        reset_idle();
+        LOG_INFO("Got NSI packet from child ");
+        LOG_INFO_6ADDR(sender_addr);
+        LOG_INFO_("\n");
+
+        send_nsi((void *)&conetsi_data, datalen);
+        if(child_count() <= 0) {
+          current_state = STATE_IDLE;
+        }
+        /*TODO: figure out what else needs to be done here */
+      }
+    } else if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
+      struct nsi_demand *dmnd = (void *)pkt->data;
+      if(uip_ds6_is_my_addr(&(dmnd->parent_addr))) {
+        LOG_INFO("Got my own DA from child ");
+        LOG_INFO_6ADDR(sender_addr);
+        LOG_INFO_("\n");
+        add_child(sender_addr);
+        /*TODO: figure out what else needs to be done here */
       }
     }
     break;
@@ -331,7 +275,7 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  LOG_INFO("Rtimer second: %ld\n", RTIMER_SECOND);
+  LOG_INFO("Rtimer second: %d\n", RTIMER_SECOND);
 
   /* TODO: ACK should be sent to multiple parent */
 
@@ -358,7 +302,7 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
       if(demand() != prev_demand) {
         prev_demand = demand();
         parent[i].backoff = get_backoff(prev_demand, parent[i].timeout);
-        LOG_DBG("Parent backoff: %d\n", parent[i].backoff);
+        LOG_DBG("Parent backoff: %ld\n", parent[i].backoff);
         LOG_DBG("Time now: %ld\n", RTIMER_NOW());
         LOG_DBG("Time left: %ld\n", (parent[i].start_time
                                  + parent[i].backoff - RTIMER_NOW()));
@@ -383,6 +327,9 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
     }
 
     if(!yield && current_state == STATE_BACKOFF) {
+      /* account for time wasted in backoff */
+      parent[i].timeout -= parent[i].backoff;
+
       /* path terminates here */
       if(parent[i].bytes >= MARGINAL_PKT_SIZE) {
         /* now i indexes the first entry which expired */
@@ -394,13 +341,11 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
       } else {
         LOG_DBG("Backoff over. Sending ACK\n");
 
-        /* TODO: will need change if multiple parents get acked */
-        send_ack(&(parent[i].addr));
-        my_parent_id = i;
+        send_demand_adv(&parent[i]);
+        current_state = STATE_DEMAND_ADVERTISED;
 
-        current_state = STATE_AWAITING_JOIN_REQ;
-        ctimer_set(&idle_timer, AWAITING_JOIN_REQ_IDLE_TIMEOUT,
-                   reset_idle, NULL);
+        /* start count-down */
+        ctimer_set(&idle_timer, parent[i].timeout, reset_idle, NULL);
       }
       count = 0;
 

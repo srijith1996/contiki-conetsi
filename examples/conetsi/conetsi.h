@@ -19,12 +19,9 @@
 #define STATE_BACKOFF           1
 #define STATE_DEMAND_ADVERTISED 2
 #define STATE_CHILD_CHOSEN      3
-#define STATE_AWAITING_JOIN_REQ 4
 /*---------------------------------------------------------------------------*/
 /* packet type defines */
 #define TYPE_DEMAND_ADVERTISEMENT 0
-#define TYPE_ACK                  1
-#define TYPE_JOIN_REQUEST         2
 #define TYPE_NSI                  3
 /*---------------------------------------------------------------------------*/
 /* thresholds */
@@ -38,8 +35,6 @@
 
 #define MAX_PARENT_REQ        5
 /*---------------------------------------------------------------------------*/
-#define AWAITING_JOIN_REQ_IDLE_TIMEOUT  (CLOCK_SECOND * 5)
-
 /* Configure how conservative the nodes should
  * be about the delay incurred in transmission
  * and queues, above and beyond the estimated
@@ -48,9 +43,10 @@
 #define DELAY_GUARD_TIME_RTICKS    RTIMER_SECOND / 10
 /*---------------------------------------------------------------------------*/
 /* packet structs */
+#define MAX_CHILDREN 3
 struct conetsi_node {
   uip_ipaddr_t parent_node;
-  uip_ipaddr_t child_node;
+  uip_ipaddr_t child_node[MAX_CHILDREN];
 };
 
 struct parent_details {
@@ -69,20 +65,19 @@ struct conetsi_pkt {
 };
   
 struct nsi_demand {
+  uip_ipaddr_t parent_addr;
   uint16_t demand;
   uint16_t time_left;
   uint16_t bytes;
-};
-
-struct join_request {
-  uip_ipaddr_t chosen_child;
-  uint16_t time_left;
   uint16_t pad;
 };
 
-#define SIZE_DA        7
-#define SIZE_ACK       1
-#define SIZE_JOIN_REQ 19
+struct nsi_forward {
+  uip_ipaddr_t to;
+  char data[THRESHOLD_PKT_SIZE];
+};
+
+#define SIZE_DA       23
 /*---------------------------------------------------------------------------*/
 /* macros for conversion */
 #define msec2ticks(x) ((x * CLOCK_SECOND) / 1000)
@@ -104,21 +99,14 @@ void reg_mcast_addr();
 /* Handshake step 1: Send multicast demand advertisement */
 int send_demand_adv(struct parent_details *parent);
 
-/* Handshake step 2: Send unicast ack to parent */
-int send_ack(const uip_ipaddr_t *parent);
-
-/* Handshake step 3: Send multicast join request */
-int send_join_req(uint32_t timeout);
-int my_join_req(void *pkt);
-
 /* Get backoff time and demand */
 uint32_t get_backoff(uint16_t demand, uint32_t timeout_rticks);
 
 /* Get and set parent and child */
 void set_parent(const uip_ipaddr_t *p);
 uip_ipaddr_t *get_parent();
-void set_child(const uip_ipaddr_t *c);
-uip_ipaddr_t *get_child();
+void add_child(const uip_ipaddr_t *c);
+int child_count(void);
 
 /* callback for handling UDP */
 void udp_rx_callback(struct simple_udp_connection *c,
