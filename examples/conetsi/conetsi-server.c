@@ -18,7 +18,6 @@ static uint8_t current_state;
 static uint8_t listen_flag, yield, all_flagged;
 static uint32_t exp_time;
 static uint32_t init_exp_time;
-static uint8_t my_parent_id;
 
 static struct parent_details parent[MAX_PARENT_REQ];
 static int count, i, prev_demand;
@@ -35,6 +34,18 @@ PROCESS(conetsi_server_process, "CoNetSI server");
 AUTOSTART_PROCESSES(&conetsi_server_process,
                     &oam_collect_process,
                     &backoff_polling_process);
+/*---------------------------------------------------------------------------*/
+static int
+id_parent(const uip_ipaddr_t *parent_addr)
+{
+  int i;
+  for(i = 0; i < count; i++) {
+    if(uip_ipaddr_cmp(&parent[i].addr, parent_addr)) {
+      return i;
+    }
+  }
+  return -1;
+}
 /*---------------------------------------------------------------------------*/
 static void
 add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
