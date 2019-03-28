@@ -145,7 +145,11 @@ call_route_callback(int event, const uip_ipaddr_t *route,
        event == UIP_DS6_NOTIFICATION_DEFRT_RM) {
       num = list_length(defaultrouterlist);
     } else {
+#if (UIP_MAX_ROUTES != 0)
       num = num_routes;
+#else
+      num = 0;
+#endif /* (UIP_MAX_ROUTES != 0) */
     }
     n->callback(event, route, nexthop, num);
   }
