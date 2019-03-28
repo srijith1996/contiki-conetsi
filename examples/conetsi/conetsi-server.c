@@ -20,7 +20,7 @@ static uint32_t exp_time;
 static uint32_t init_exp_time;
 
 static struct parent_details parent[MAX_PARENT_REQ];
-static int count, i, prev_demand;
+static int count, i;
 
 static char conetsi_data[THRESHOLD_PKT_SIZE];
 
@@ -70,6 +70,8 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
     parent[count].timeout = msec2rticks(demand_pkt->time_left);
     parent[count].demand = demand_pkt->demand;
     parent[count].bytes = demand_pkt->bytes;
+
+    parent[count].prev_demand = demand();
     parent[count].backoff = get_backoff(demand(), parent[count].timeout);
 
     /* increment counter before yielding */
@@ -277,11 +279,6 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
 
   LOG_INFO("Rtimer second: %d\n", RTIMER_SECOND);
 
-  /* TODO: ACK should be sent to multiple parent */
-
-  /* invalidate prev_demand */
-  prev_demand = -1;
-
   /* Change the context to conetsi process to avoid blocking
    * the UDP callback process */
   while(1) {
@@ -299,14 +296,16 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
 
       LOG_DBG("Parent start time: %ld\n", parent[i].start_time);
 
-      if(demand() != prev_demand) {
-        prev_demand = demand();
-        parent[i].backoff = get_backoff(prev_demand, parent[i].timeout);
-        LOG_DBG("Parent backoff: %ld\n", parent[i].backoff);
-        LOG_DBG("Time now: %ld\n", RTIMER_NOW());
-        LOG_DBG("Time left: %ld\n", (parent[i].start_time
-                                 + parent[i].backoff - RTIMER_NOW()));
+      if(demand() != parent[i].prev_demand) {
+        parent[i].prev_demand = demand();
+        parent[i].backoff = get_backoff(parent[i].prev_demand,
+                                        parent[i].timeout);
       }
+
+      LOG_DBG("Parent backoff: %ld\n", parent[i].backoff);
+      LOG_DBG("Time now: %ld\n", RTIMER_NOW());
+      LOG_DBG("Time left: %ld\n", (parent[i].start_time
+                                 + parent[i].backoff - RTIMER_NOW()));
 
       yield &= (parent[i].flagged || (RTIMER_NOW() <
                     parent[i].start_time + parent[i].backoff));
@@ -348,9 +347,6 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
         ctimer_set(&idle_timer, parent[i].timeout, reset_idle, NULL);
       }
       count = 0;
-
-      /* invalidate prev_demand */
-      prev_demand = -1;
     }
   }
   LOG_DBG("Exiting backoff\n");
