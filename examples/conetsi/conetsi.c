@@ -29,7 +29,7 @@ reg_mcast_addr()
                       UDP_CLIENT_PORT, udp_rx_callback);
 }
 /*---------------------------------------------------------------------------*/
-int
+uint32_t
 send_demand_adv(struct parent_details *parent)
 {
   uint32_t delay, timeout;
@@ -50,9 +50,13 @@ send_demand_adv(struct parent_details *parent)
       timeout = parent->timeout;
     }
   } else {
-    /* copy an invalid all zeros address */
-    uip_ip6addr(&(demand_buf->parent_addr), 0, 0, 0, 0, 0, 0, 0, 0);
+    /* copy host address */
+    uip_ipaddr_copy(&(demand_buf->parent_addr), &host_addr);
   }
+
+  LOG_DBG("----- Buffer contents -----\n");
+  LOG_DBG("Demand: %d\n", demand_buf->demand);
+  LOG_DBG("Bytes: %d\n", demand_buf->bytes);
 
   /* Convert to network order */
   HTONS(demand_buf->demand);
@@ -71,6 +75,8 @@ send_demand_adv(struct parent_details *parent)
 
   timeout = timeout - delay;
   demand_buf->time_left = rticks2msec(timeout);
+  LOG_DBG("Timeout: %d\n", demand_buf->time_left);
+  LOG_DBG("---------------------------\n");
   HTONS(demand_buf->time_left);
 
   /* WARN: comment this out if not necessary */
@@ -86,7 +92,7 @@ send_demand_adv(struct parent_details *parent)
 
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_DA, &mcast_addr);
 
-  return 0;
+  return (timeout + delay);
 }
 /*---------------------------------------------------------------------------*/
 int

@@ -295,7 +295,7 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
 
           LOG_INFO("Timeout ticks: %ld\n", exp_time);
           exp_time = ticks2rticks(exp_time);
-          LOG_INFO("Timeout rtimer ticks: %ld\n", exp_time);
+          LOG_DBG("Timeout rtimer ticks: %ld\n", exp_time);
         }
       }
     }
@@ -363,23 +363,23 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
     if(!yield && current_state == STATE_BACKOFF) {
       /* account for time wasted in backoff */
       parent[i].timeout -= parent[i].backoff;
+      set_parent(&(parent[i].addr));
 
       /* path terminates here */
       if(parent[i].bytes >= MARGINAL_PKT_SIZE) {
         /* now i indexes the first entry which expired */
         LOG_INFO("Packet will bloat if continued. Sending NSI\n");
-        set_parent(&(parent[i].addr));
-
         send_nsi(NULL, 0);
         current_state = STATE_IDLE;
       } else {
-        LOG_DBG("Backoff over. Sending ACK\n");
-
-        send_demand_adv(&parent[i]);
+        LOG_DBG("Backoff over. Sending DA\n");
+        parent[i].timeout = send_demand_adv(&parent[i]);
         current_state = STATE_DEMAND_ADVERTISED;
 
         /* start count-down */
-        ctimer_set(&idle_timer, parent[i].timeout, reset_idle, NULL);
+        LOG_INFO("Resetting to IDLE in: %d\n", parent[i].timeout);
+        ctimer_set(&idle_timer, rticks2ticks(parent[i].timeout),
+                   reset_idle, NULL);
       }
       count = 0;
     }
