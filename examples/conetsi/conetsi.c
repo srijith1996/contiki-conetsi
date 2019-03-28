@@ -102,8 +102,11 @@ send_nsi(const uint8_t *buf, int buf_len)
   uint8_t add_len = 0;
   uint8_t tmp;
 
+  /* buf always contains an addr */
+  uint8_t buf_data_start = sizeof(uip_ipaddr_t) + 1;
+
   LOG_INFO("Sending NSI to ");
-  LOG_INFO_6ADDR(&me.parent_node);
+  LOG_INFO_6ADDR(&(me.parent_node));
   LOG_INFO_("\n");
 
   /* copy type information */
@@ -112,30 +115,29 @@ send_nsi(const uint8_t *buf, int buf_len)
   add_len += 1;
 
   /* copy receiver parent address only if I'm not genesis */
-  if(!uip_ipaddr_cmp(&me.parent_node, &host_addr)) {
+  if(!uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {
     struct nsi_forward *nsi_info = (struct nsi_forward *)(conetsi_buf + 1);
-    uip_ipaddr_copy(&(nsi_info->to), &me.parent_node);
+    uip_ipaddr_copy(&(nsi_info->to), &(me.parent_node));
     add_len += sizeof(uip_ipaddr_t);
   }
 
   if(buf != NULL) {
-    memcpy(conetsi_buf + add_len, buf + add_len, buf_len - add_len);
+    memcpy(conetsi_buf + add_len,
+           buf + buf_data_start,
+           buf_len - buf_data_start);
 
     /* increment hop count in packet */
     tmp = *((uint8_t *)(conetsi_buf + add_len)) + 1;
     LOG_INFO("Number of hops: %d\n", tmp);
-
-    memcpy(conetsi_buf + add_len, &tmp, 1);
-    add_len = buf_len;
-
   } else {
     /* if the buf is empty, I must initiate the NSI packet */
     tmp = 1;
-
-    memcpy(conetsi_buf + add_len, &tmp, 1);
-    add_len += 1;
     buf_len = 1;
+    buf_data_start = 0;
   }
+
+  memcpy(conetsi_buf + add_len, &tmp, 1);
+  add_len += buf_len - buf_data_start;
 
   memcpy(conetsi_buf + add_len, &uip_lladdr, LINKADDR_SIZE);
   add_len += LINKADDR_SIZE;
@@ -152,7 +154,7 @@ send_nsi(const uint8_t *buf, int buf_len)
   LOG_DBG_("\n");
 
   /* Send NSI to parent */
-  if(uip_ipaddr_cmp(&me.parent_node, &host_addr)) {
+  if(uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {
     simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &host_addr);
   } else {
     simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &mcast_addr);
@@ -212,6 +214,6 @@ get_backoff(uint16_t demand, uint32_t timeout_rticks)
   LOG_DBG_(", %lu\n", timeout_rticks);
   LOG_INFO("Obtained backoff: %lu\n", timeout_rticks);
 
-  return (uint16_t)timeout_rticks;
+  return timeout_rticks;
 }
 /*---------------------------------------------------------------------------*/

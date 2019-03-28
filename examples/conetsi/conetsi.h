@@ -54,9 +54,13 @@ struct parent_details {
   uint32_t start_time;
   uint32_t timeout;
   uint32_t backoff;
+  uint16_t prev_demand;    /* to speed up backoff process; avoids recalc
+                              this is important, since randomness is
+                              added to the backoff */
   uint16_t demand;
   uint16_t bytes;
   uint8_t flagged;
+  uint8_t pad;
 };
 
 struct conetsi_pkt {
@@ -97,7 +101,7 @@ void reg_mcast_addr();
 
 /* Control message functions */
 /* Handshake step 1: Send multicast demand advertisement */
-int send_demand_adv(struct parent_details *parent);
+uint32_t send_demand_adv(struct parent_details *parent);
 
 /* Get backoff time and demand */
 uint32_t get_backoff(uint16_t demand, uint32_t timeout_rticks);
