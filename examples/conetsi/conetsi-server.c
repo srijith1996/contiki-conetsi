@@ -28,12 +28,13 @@ static struct ctimer idle_timer;
 static struct etimer bo_poll_timer;
 process_event_t genesis_event;
 
+/* for notifications from UIP */
+struct uip_ds6_notification uip_notification;
+
 PROCESS_NAME(oam_collect_process);
 PROCESS(backoff_polling_process, "Backoff Polling process");
 PROCESS(conetsi_server_process, "CoNetSI server");
-AUTOSTART_PROCESSES(&conetsi_server_process,
-                    &oam_collect_process,
-                    &backoff_polling_process);
+AUTOSTART_PROCESSES(&conetsi_server_process);
 /*---------------------------------------------------------------------------*/
 static int
 id_parent(const uip_ipaddr_t *parent_addr)
@@ -225,10 +226,44 @@ udp_rx_callback(struct simple_udp_connection *c,
   return;
 }
 /*---------------------------------------------------------------------------*/
+void
+uip_callback(int event, const uip_ipaddr_t *route,
+             const uip_ipaddr_t *nexthop, int num_routes)
+{
+
+  LOG_INFO("UIP called back: \n");
+  LOG_INFO("# of routes: %d\n");
+  LOG_INFO("Route: ");
+  LOG_INFO_6ADDR(route);
+  LOG_INFO_("\n");
+  LOG_INFO("Next Hop: ");
+  LOG_INFO_6ADDR(nexthop);
+  LOG_INFO_("\n");
+
+  if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
+    LOG_INFO("Posting to CoNetSI server\n");
+    process_post(&conetsi_server_process, event, NULL);
+
+    LOG_INFO("Starting OAM and backoff processes\n");
+    process_start(&backoff_polling_process, NULL);
+    process_start(&oam_collect_process, NULL);
+  }
+  return;
+}
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(conetsi_server_process, ev, data)
 {
   PROCESS_BEGIN();
 
+  /* Set up route notification */
+  uip_ds6_notification_add(&uip_notification, &uip_callback);
+  LOG_INFO("Waiting for default route\n");
+  PROCESS_YIELD_UNTIL(ev == UIP_DS6_NOTIFICATION_DEFRT_ADD);
+
+  /* if needed remove further callbacks from UIP */
+  uip_ds6_notification_rm(&uip_notification);
+
+  /* Initialize global vars */
   current_state = STATE_IDLE;
   genesis_event = process_alloc_event();
 
