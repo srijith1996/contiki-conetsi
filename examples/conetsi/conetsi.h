@@ -84,14 +84,14 @@ struct nsi_forward {
 #define SIZE_DA       23
 /*---------------------------------------------------------------------------*/
 /* macros for conversion */
-#define msec2ticks(x) ((x * CLOCK_SECOND) / 1000)
-#define ticks2msec(x) ((x * 1000) / CLOCK_SECOND)
-#define msec2rticks(x) ((x * RTIMER_SECOND) / 1000)
-#define rticks2msec(x) ((x * 1000) / RTIMER_SECOND)
-
-/* TODO: Possible overflow here */
-#define ticks2rticks(x) ((x * RTIMER_SECOND) / CLOCK_SECOND)
-#define rticks2ticks(x) ((x * CLOCK_SECOND) / RTIMER_SECOND)
+#define msec2ticks(x) ((uint16_t)(((uint64_t)x * CLOCK_SECOND) / 1000))
+#define ticks2msec(x) ((uint16_t)(((uint64_t)x * 1000) / CLOCK_SECOND))
+#define msec2rticks(x) ((uint16_t)(((uint64_t)x * RTIMER_SECOND) / 1000))
+#define rticks2msec(x) ((uint16_t)(((uint64_t)x * 1000) / RTIMER_SECOND))
+#define ticks2rticks(x) ((uint16_t)(((uint64_t)x * RTIMER_SECOND) \
+                          / CLOCK_SECOND))
+#define rticks2ticks(x) ((uint16_t)(((uint64_t)x * CLOCK_SECOND) \
+                          / RTIMER_SECOND))
 
 /* functions used by processes */
 int send_nsi(const uint8_t *buf, int buf_len);
