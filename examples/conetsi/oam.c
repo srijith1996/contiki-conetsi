@@ -242,6 +242,13 @@ oam_string(char *buf)
   return ctr;
 }
 /*---------------------------------------------------------------------------*/
+oam_module_id_t
+oam_alloc_module(void)
+{
+  LOG_DBG("Allocated a new module ID\n");
+  return indexer++;
+}
+/*---------------------------------------------------------------------------*/
 void
 register_oam(int id, int mod_p,
              void (* value_callback) (struct oam_val *),

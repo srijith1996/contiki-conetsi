@@ -382,7 +382,7 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
         current_state = STATE_DEMAND_ADVERTISED;
 
         /* start count-down */
-        LOG_INFO("Resetting to IDLE in: %d\n", parent[i].timeout);
+        LOG_INFO("Resetting to IDLE in: %lu\n", parent[i].timeout);
         ctimer_set(&idle_timer, rticks2ticks(parent[i].timeout),
                    reset_idle, NULL);
       }

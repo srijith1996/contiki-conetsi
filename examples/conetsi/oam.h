@@ -73,7 +73,9 @@ struct oam_module {
 };
 #define OAM_ENTRY_BASE_SIZE 2
 /*---------------------------------------------------------------------------*/
-/* functions for registering and unregistering */
+/* functions for getting ID registering and unregistering */
+oam_module_id_t oam_alloc_module(void);
+
 void register_oam(int id, int mod_p,
                   void (* value_callback) (struct oam_val *),
                   void (* reset_callback) (void),
