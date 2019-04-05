@@ -13,18 +13,9 @@
 /* TODO: All timers do not consider the compute time
  * This needs an update in the next iteration
  */
-/* temporarily declaring methods for dummy, here */
-void reset();
-int start_dummy();
-int stop_dummy();
-void get_value(struct oam_val *oam);
-void *get_conf();
-void set_conf(void *);
 /*---------------------------------------------------------------------------*/
 struct oam_stats oam_buf_state;
 struct oam_module modules[MAX_OAM_ENTRIES];
-
-struct dummy { uint16_t dummy_val; uint16_t max_val; uint16_t min_val; };
 
 static struct oam_val return_val;
 static int count, iter, indexer;
@@ -323,13 +314,6 @@ PROCESS_THREAD(oam_collect_process, ev, data)
   oam_buf_state.bytes = LINKADDR_SIZE + 1;
   oam_buf_state.priority = LOWEST_PRIORITY;
   oam_buf_state.exp_timer = NULL;
-
-  /* For now register all processes here */
-  /* e.g.: register_oam(bat_volt_id, &get_bat_volt) */
-  register_oam(10, get_value, reset, get_conf,
-               set_conf, start_dummy, stop_dummy);
-  register_oam(11, get_value, reset, get_conf,
-               set_conf, start_dummy, stop_dummy);
 
   while(1) {
     etimer_set(&oam_poll_timer, OAM_POLL_INTERVAL);
