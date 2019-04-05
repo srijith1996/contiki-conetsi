@@ -40,6 +40,7 @@
 
 #include "net/mac/csma/csma.h"
 #include "net/mac/csma/csma-output.h"
+#include "net/mac/csma/csma-mgmt.h"
 #include "net/mac/mac-sequence.h"
 #include "net/packetbuf.h"
 #include "net/netstack.h"
@@ -132,6 +133,12 @@ static void
 init(void)
 {
   csma_output_init();
+
+  /* CUSTOM: CoNetSI management module */
+#if CSMA_MGMT
+  csma_mgmt_qlen_init();
+#endif /* CSMA_MGMT */
+
   on();
 }
 /*---------------------------------------------------------------------------*/

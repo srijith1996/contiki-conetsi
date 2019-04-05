@@ -40,6 +40,7 @@
  */
 
 #include "net/mac/csma/csma.h"
+#include "net/mac/csma/csma-mgmt.h"
 #include "net/packetbuf.h"
 #include "net/queuebuf.h"
 #include "dev/watchdog.h"
@@ -529,6 +530,12 @@ csma_output_packet(mac_callback_t sent, void *ptr)
                     packetbuf_datalen(),
                     packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO),
                     list_length(n->packet_queue), memb_numfree(&packet_memb));
+
+            /* CUSTOM: contact management */
+#if CSMA_MGMT
+            csma_mgmt_qlen_record(list_length(n->packet_queue));
+#endif /* CSMA_MGMT */
+
             /* If q is the first packet in the neighbor's queue, send asap */
             if(list_head(n->packet_queue) == q) {
               schedule_transmission(n);
