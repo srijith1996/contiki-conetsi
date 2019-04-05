@@ -58,10 +58,6 @@ send_demand_adv(struct parent_details *parent)
   LOG_DBG("Demand: %d\n", demand_buf->demand);
   LOG_DBG("Bytes: %d\n", demand_buf->bytes);
 
-  /* Convert to network order */
-  HTONS(demand_buf->demand);
-  HTONS(demand_buf->bytes);
-
   LOG_INFO("Sending DA to ");
   LOG_INFO_6ADDR(&mcast_addr);
   LOG_INFO_("\n");
