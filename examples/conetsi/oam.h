@@ -69,16 +69,18 @@ struct oam_module {
   int (* start) (void);
   int (* stop) (void);
 
-  void *data;
+  char data[10];
 };
 #define OAM_ENTRY_BASE_SIZE 2
 /*---------------------------------------------------------------------------*/
 /* functions for registering and unregistering */
-void register_oam(int oam_id, void (* value_callback) (struct oam_val *),
+void register_oam(int id, int mod_p,
+                  void (* value_callback) (struct oam_val *),
                   void (* reset_callback) (void),
                   void* (* get_conf_callback) (void),
                   void (* set_conf_callback) (void *),
-                  int (* start_callback) (void), int (* stop_callback) (void));
+                  int (* start_callback) (void),
+                  int (* stop_callback) (void));
 
 void unregister_oam(int oam_id);
 

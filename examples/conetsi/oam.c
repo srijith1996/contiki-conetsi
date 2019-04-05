@@ -145,13 +145,21 @@ get_bytes()
 static void
 global_exp()
 {
+  oam_buf_state.exp_timer = NULL;
   if(count == 0) {
-    oam_buf_state.exp_timer = NULL;
     return;
   }
 
-  oam_buf_state.exp_timer = &(modules[0].exp_timer.etimer.timer);
+  if(!modules[0].lock) {
+    oam_buf_state.exp_timer = &(modules[0].exp_timer.etimer.timer);
+  }
+
+  int i;
   for(i = 1; i < count; i++) {
+    /* only check unlocked modules */
+    if(modules[i].lock) {
+      continue;
+    }
     LOG_DBG("Global expiration check, timer(%p), module_timer(%p)\n",
              oam_buf_state.exp_timer, &(modules[i].exp_timer.etimer.timer));
 
@@ -169,10 +177,11 @@ global_p()
     oam_buf_state.priority = LOWEST_PRIORITY;
     return;
   }
-  oam_buf_state.priority = modules[0].priority;
+  oam_buf_state.priority = modules[0].data_priority;
+  int i;
   for(i = 1; i < count; i++) {
-    if(oam_buf_state.priority > modules[i].priority) {
-      oam_buf_state.priority = modules[i].priority;
+    if(oam_buf_state.priority > modules[i].data_priority) {
+      oam_buf_state.priority = modules[i].data_priority;
     }
   }
 }
@@ -229,7 +238,7 @@ oam_string(char *buf)
 }
 /*---------------------------------------------------------------------------*/
 void
-register_oam(int oam_id,
+register_oam(int id, int mod_p,
              void (* value_callback) (struct oam_val *),
              void (* reset_callback) (void),
              void* (* get_conf_callback) (void),
@@ -237,8 +246,9 @@ register_oam(int oam_id,
              int (* start_callback) (void),
              int (* stop_callback) (void))
 {
-  modules[count].id = oam_id;
-  modules[i].lock = 1;
+  modules[count].id = id;
+  modules[count].lock = 1;
+  modules[count].mod_priority = mod_p;
 
   modules[count].get_val = value_callback;
   modules[count].reset = reset_callback;
@@ -248,9 +258,10 @@ register_oam(int oam_id,
   modules[count].stop = stop_callback;
 
   modules[count].bytes = 0;
-  modules[count].priority = 65535;
-  modules[count].data = NULL;
-  
+  modules[count].data_priority = LOWEST_PRIORITY;
+  /* modules[count].data = NULL; */
+
+  LOG_INFO("Registered module: %d\n", modules[count].id);
   count++;
 }
 /*---------------------------------------------------------------------------*/
@@ -270,6 +281,7 @@ unregister_oam(int oam_id)
       /* copy last element to this location */
       modules[i].id = modules[count - 1].id;
       modules[i].lock = modules[count - 1].lock;
+      modules[i].mod_priority = modules[count - 1].mod_priority;
 
       modules[i].get_val = modules[count - 1].get_val;
       modules[i].reset = modules[count - 1].reset;
@@ -279,8 +291,9 @@ unregister_oam(int oam_id)
       modules[i].stop = modules[count - 1].stop;
 
       modules[i].bytes = modules[count - 1].bytes;
-      modules[i].priority = modules[count - 1].priority;
-      modules[i].data = modules[count - 1].data;
+      modules[i].data_priority = modules[count - 1].data_priority;
+      memcpy(modules[i].data, modules[count - 1].data,
+             modules[count - 1].bytes);
 
       count--;
       break;
@@ -311,43 +324,53 @@ PROCESS_THREAD(oam_collect_process, ev, data)
     LOG_DBG("Woken up for poll, module count - %d\n", count);
 
     /* poll processes */
-    for(i = 0; i < count; i++) {
+    for(iter = 0; iter < count; iter++) {
       /* ignore if info is updated */
-      if(modules[i].data != NULL) {
+      if(!modules[iter].lock) {
         break;
       }
-      LOG_INFO("Polling module %d for value\n", modules[i].id);
+      LOG_INFO("Polling module %d for value\n", modules[iter].id);
 
       /* get the current module's value */
-      modules[i].get_val(&return_val);
+      modules[iter].get_val(&return_val);
+
+      int j;
+      LOG_DBG("Received module data - ");
+      for(j = 0; j < sizeof(struct oam_val); j++) {
+        LOG_DBG_("%02x:", *((uint8_t *)&return_val + j));
+      }
+      LOG_DBG_("\n");
 
       /* consider entry only if the priority is high enough */
-      if((modules[i].priority =
-          global_priority(modules[i].id, return_val.priority))
+      if((modules[iter].data_priority =
+          global_priority(modules[iter].mod_priority, return_val.priority))
             < THRESHOLD_PRIORITY) {
 
         /* Setup callback timer to cleanup this OAM process */
-        ctimer_set(&modules[i].exp_timer, return_val.timeout,
-                   cleanup, &modules[i]);
-        modules[i].data = return_val.data;
-        modules[i].bytes = return_val.bytes;
+        ctimer_set(&modules[iter].exp_timer, return_val.timeout,
+                   cleanup, &modules[iter]);
+        LOG_DBG("Started CTimer for module %d\n", modules[iter].id);
+
+        modules[iter].bytes = return_val.bytes;
+        memcpy(modules[iter].data, return_val.data, return_val.bytes);
 
         oam_buf_state.bytes += OAM_ENTRY_BASE_SIZE;
-        oam_buf_state.bytes += modules[i].bytes;
+        oam_buf_state.bytes += modules[iter].bytes;
 
         if(oam_buf_state.exp_timer == NULL) {
-          oam_buf_state.exp_timer = &(modules[i].exp_timer.etimer.timer);
+          oam_buf_state.exp_timer = &(modules[iter].exp_timer.etimer.timer);
         } else if(timer_remaining(oam_buf_state.exp_timer) >
-           timer_remaining(&(modules[i].exp_timer.etimer.timer))) {
+           timer_remaining(&(modules[iter].exp_timer.etimer.timer))) {
           /* update the global expiration time */
-          oam_buf_state.exp_timer = &(modules[i].exp_timer.etimer.timer);
+          oam_buf_state.exp_timer = &(modules[iter].exp_timer.etimer.timer);
         }
-        if(oam_buf_state.priority > modules[i].priority) {
-          oam_buf_state.priority = modules[i].priority;
+        if(oam_buf_state.priority > modules[iter].data_priority) {
+          oam_buf_state.priority = modules[iter].data_priority;
         }
 
         /* release lock to this module */
-        modules[i].lock = 0;
+        LOG_DBG("Releasing module lock after data entry\n");
+        modules[iter].lock = 0;
       }
     }
 
