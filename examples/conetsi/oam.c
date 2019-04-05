@@ -315,6 +315,10 @@ PROCESS_THREAD(oam_collect_process, ev, data)
   oam_buf_state.priority = LOWEST_PRIORITY;
   oam_buf_state.exp_timer = NULL;
 
+#if CONF_DUMMY
+  dummy_init();
+#endif /* CONF_DUMMY */
+
   while(1) {
     etimer_set(&oam_poll_timer, OAM_POLL_INTERVAL);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&oam_poll_timer));

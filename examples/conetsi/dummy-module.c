@@ -4,35 +4,41 @@
 #include <random.h>
 #include <string.h>
 
+#if CONF_DUMMY
 #include "oam.h"
+
+#include "sys/log.h"
+#define LOG_MODULE "Dummy"
+#define LOG_LEVEL LOG_LEVEL_DUMMY
 /*---------------------------------------------------------------------------*/
+static oam_module_id_t dummy_id;
 struct dummy {
   uint16_t dummy_val;
   uint16_t max_val;
   uint16_t min_val;
 } values;
 /*---------------------------------------------------------------------------*/
-void
-reset()
+static void
+reset(void)
 {
   values.max_val = 0;
   values.min_val = 65535;
 }
 /*---------------------------------------------------------------------------*/
-int
-start_dummy()
+static int
+start_dummy(void)
 {
   reset();  
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-int
-stop_dummy()
+static int
+stop_dummy(void)
 {
   return 0;
 }
 /*---------------------------------------------------------------------------*/
-void
+static void
 get_value(struct oam_val *oam)
 {
   values.dummy_val = random_rand() % 500;
@@ -54,15 +60,33 @@ get_value(struct oam_val *oam)
   memcpy(&oam->data, &values, sizeof(struct dummy));
 }
 /*---------------------------------------------------------------------------*/
-void *
-get_conf()
+static void *
+get_conf(void)
 {
   return NULL;
 }
 /*---------------------------------------------------------------------------*/
-void
+static void
 set_conf(void *conf)
 {
 
 }
+/*---------------------------------------------------------------------------*/
+void
+dummy_init(void)
+{
+  /* register to OAM */
+  dummy_id = oam_alloc_module();
+  register_oam(dummy_id, DUMMY_PRIORITY,
+               get_value,
+               reset,
+               get_conf,
+               set_conf,
+               start_dummy,
+               stop_dummy);
+
+  reset();
+}
+/*---------------------------------------------------------------------------*/
+#endif /* CONF_DUMMY */
 /*---------------------------------------------------------------------------*/
