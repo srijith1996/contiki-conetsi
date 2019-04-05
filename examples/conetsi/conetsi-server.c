@@ -55,8 +55,13 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
   /* change byte order */
   NTOHS(demand_pkt->time_left);
   
+  LOG_DBG("Obtained DA: d=%d, T=%d, B=%d\n",
+          demand_pkt->demand, demand_pkt->time_left,
+          demand_pkt->bytes);
   if(demand_pkt->demand > THRESHOLD_DEMAND &&
      demand_pkt->time_left > THRESHOLD_TIMEOUT_MSEC) {
+
+    LOG_DBG("Parent can be added\n");
 
     current_state = STATE_BACKOFF;
 
@@ -230,7 +235,7 @@ uip_callback(int event, const uip_ipaddr_t *route,
 {
 
   LOG_INFO("UIP called back: \n");
-  LOG_INFO("# of routes: %d\n");
+  LOG_INFO("# of routes: %d\n", num_routes);
   LOG_INFO("Route: ");
   LOG_INFO_6ADDR(route);
   LOG_INFO_("\n");
@@ -321,6 +326,8 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
 
     yield = 1;
     all_flagged = 0;
+
+    LOG_DBG("Woken: count=%d\n", count);
 
     for(i = 0; i < count; i++) {
       LOG_DBG("Parent ");

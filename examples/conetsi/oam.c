@@ -27,7 +27,7 @@ struct oam_module modules[MAX_OAM_ENTRIES];
 struct dummy { uint16_t dummy_val; uint16_t max_val; uint16_t min_val; };
 
 static struct oam_val return_val;
-static int count, i;
+static int count, iter, indexer;
 static struct etimer oam_poll_timer;
 
 extern process_event_t genesis_event;
@@ -35,37 +35,25 @@ extern process_event_t genesis_event;
 PROCESS_NAME(conetsi_server_process);
 PROCESS(oam_collect_process, "OAM Process");
 /*---------------------------------------------------------------------------*/
-static int
-config_priority(int id) {
-  switch(id) {
-    case 10:                 return  20;
-    case BAT_VOLT_ID:        return 100;
-    case FRAME_DROP_RATE_ID: return  10;
-    case ETX_ID:             return  20;
-    case QUEUE_STATE_ID:     return   5;
-    default:                 return  -1;
-  }
-}
-/*---------------------------------------------------------------------------*/
 /*
  * Linear scaling applied to local priority
  */
 #if (CONF_PRIORITY != PRIORITY_RAYLEIGH)
 static int
-global_priority_lin(int id, int priority)
+global_priority_lin(int config_priority, int data_priority)
 {
   /* scale the priority based on configured priority */
   int ret = HIGHEST_PRIORITY;
 
-  ret += ((priority - HIGHEST_PRIORITY)
-        * (LOWEST_PRIORITY - config_priority(id)))
+  ret += ((data_priority - HIGHEST_PRIORITY)
+        * (LOWEST_PRIORITY - config_priority))
       / (LOWEST_PRIORITY - HIGHEST_PRIORITY);
 
   /* Priority should be hard bound */
   ret = (ret < HIGHEST_PRIORITY) ? HIGHEST_PRIORITY : ret;
   ret = (ret > LOWEST_PRIORITY) ? LOWEST_PRIORITY : ret;
 
-  LOG_DBG("Global Priority lin(%d): %d\n", id, ret);
+  LOG_DBG("Global Priority lin: %d\n", ret);
 
   return ret;
 }
@@ -73,31 +61,31 @@ global_priority_lin(int id, int priority)
 /*
  * Rayleigh scaling applied to local priority
  */
-#else /* (CONF_PRIORITY != PRIORITY_LINEAR) */
+#else /* (CONF_PRIORITY != PRIORITY_RAYLEIGH) */
 static int
-global_priority_ray(int id, int priority)
+global_priority_ray(int config_priority, int data_priority)
 {
   /* scale the priority based on configured priority */
   /* using the Rayleigh function to scale */
   int sigma, x, ret;
   sigma = LOWEST_PRIORITY - HIGHEST_PRIORITY;
-  x = config_priority(id) - (LOWEST_PRIORITY - HIGHEST_PRIORITY)/2;
+  x = config_priority - (LOWEST_PRIORITY - HIGHEST_PRIORITY)/2;
 
   ret = x / (sigma * sigma);
   ret = ret * exp(- x*x / (sigma*sigma));
   ret = ret + 1;
 
-  ret = ret * priority;
+  ret = ret * data_priority;
 
   /* Priority should be hard bound */
   ret = (ret < HIGHEST_PRIORITY) ? HIGHEST_PRIORITY : ret;
   ret = (ret > LOWEST_PRIORITY) ? LOWEST_PRIORITY : ret;
 
-  LOG_DBG("Global Priority(%d): %d\n", id, ret);
+  LOG_DBG("Global Priority: %d\n", ret);
 
   return ret;
 }
-#endif /* (CONF_PRIORITY != PRIORITY_LINEAR) */
+#endif /* (CONF_PRIORITY != PRIORITY_RAYLEIGH) */
 /*---------------------------------------------------------------------------*/
 int
 demand()
@@ -127,11 +115,14 @@ demand()
 uint16_t
 get_nsi_timeout()
 {
-  LOG_DBG("Returning timeout, timer(%p)\n", oam_buf_state.exp_timer);
-
   if(oam_buf_state.exp_timer == NULL) {
     return -1;
   }
+
+  LOG_DBG("Returning timeout, timer(%p) %d\n",
+          oam_buf_state.exp_timer,
+          timer_remaining(oam_buf_state.exp_timer));
+
 
   return (uint16_t)timer_remaining(oam_buf_state.exp_timer);
 }
@@ -190,16 +181,18 @@ static void
 cleanup(void *mod)
 {
   struct oam_module *module = mod;
-
   LOG_INFO("Cleaning up module id: %d\n", module->id);
+
+  ctimer_stop(&module->exp_timer);
+  LOG_DBG("Stopped CTimer for module %d\n", module->id);
+ 
   oam_buf_state.bytes -= module->bytes;
   oam_buf_state.bytes -= OAM_ENTRY_BASE_SIZE;
 
+  LOG_DBG("Locking module: %d\n", module->id);
   module->lock = 1;
   module->bytes = 0;
-  module->priority = LOWEST_PRIORITY;
-  module->data = NULL;
-  ctimer_stop(&module->exp_timer);
+  module->data_priority = LOWEST_PRIORITY;
 
   global_exp();
   global_p();
@@ -216,17 +209,29 @@ oam_string(char *buf)
   sprintf(buf, "%c", (uint8_t)(oam_buf_state.bytes - LINKADDR_SIZE - 1));
   ctr += 1;
     
-  /* TODO: Always store module data in network byte order */
+  /* Always store module data in network byte order */
   for(i = 0; i < count; i++) {
+    LOG_DBG("Checking validity for %d (locked: %d)\n",
+            modules[i].id, modules[i].lock);
 
     /* Lock will prevent cleaned up data from being recorded */
     if(!modules[i].lock) {
+#if (LOG_LEVEL_OAM == LOG_LEVEL_DBG)
+      int j;
+      int pctr = ctr;
+#endif /* (LOG_LEVEL_OAM == LOG_LEVEL_DBG) */
       memcpy((buf + ctr), &(modules[i].id), 1);
       ctr += 1;
       memcpy((buf + ctr), &(modules[i].bytes), 1);
       ctr += 1;
       memcpy((buf + ctr), &(modules[i].data), modules[i].bytes);
       ctr += modules[i].bytes;
+
+      LOG_DBG("Copied module data (%d) - ", modules[i].id);
+      for(j = pctr; j < ctr; j++) {
+        LOG_DBG_("%02x:", *((uint8_t *)buf + pctr + j));
+      }
+      LOG_DBG_("\n");
 
       /* notify the modules to reset counters */
       modules[i].reset();
@@ -277,6 +282,8 @@ unregister_oam(int oam_id)
         count--;
         break;
       }
+
+      LOG_INFO("Un-registering module: %d\n", modules[i].id);
 
       /* copy last element to this location */
       modules[i].id = modules[count - 1].id;
@@ -345,6 +352,9 @@ PROCESS_THREAD(oam_collect_process, ev, data)
       if((modules[iter].data_priority =
           global_priority(modules[iter].mod_priority, return_val.priority))
             < THRESHOLD_PRIORITY) {
+
+        LOG_DBG("Obtained NSI: timeout=%d, priority=%d, size=%d\n",
+                return_val.timeout, return_val.priority, return_val.bytes);
 
         /* Setup callback timer to cleanup this OAM process */
         ctimer_set(&modules[iter].exp_timer, return_val.timeout,

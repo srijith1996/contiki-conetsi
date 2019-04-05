@@ -67,7 +67,10 @@ send_demand_adv(struct parent_details *parent)
           * sicslowpan_queue_len()
           * sicslowpan_avg_tx_count();
 
+  LOG_DBG("Obtained timeout: %d\n", timeout);
+
   delay += DELAY_GUARD_TIME_RTICKS;
+  LOG_DBG("Predicted delay in TX: %d\n", delay);
 
   timeout = timeout - delay;
   demand_buf->time_left = rticks2msec(timeout);
