@@ -8,9 +8,6 @@
 
 #include "oam.h"
 /*---------------------------------------------------------------------------*/
-#define NTOHS(x)  (x = uip_ntohs(x))
-#define HTONS(x)  (x = uip_htons(x))
-/*---------------------------------------------------------------------------*/
 #define UDP_SERVER_PORT 3005
 #define UDP_CLIENT_PORT 3005
 /*---------------------------------------------------------------------------*/
@@ -70,10 +67,10 @@ struct conetsi_pkt {
   
 struct nsi_demand {
   uip_ipaddr_t parent_addr;
-  uint16_t demand;
   uint16_t time_left;
-  uint16_t bytes;
-  uint16_t pad;
+  uint8_t demand;
+  uint8_t bytes;
+  uint8_t pad[4];
 };
 
 struct nsi_forward {

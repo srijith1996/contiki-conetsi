@@ -32,7 +32,7 @@ reg_mcast_addr()
 uint32_t
 send_demand_adv(struct parent_details *parent)
 {
-  uint32_t delay, timeout;
+  uint64_t delay, timeout;
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   struct nsi_demand *demand_buf = (void *) &(buf->data);
 
@@ -90,7 +90,7 @@ send_demand_adv(struct parent_details *parent)
   LOG_DBG_("\n");
   */
 
-  simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_DA, &mcast_addr);
+  simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_DA + 1, &mcast_addr);
 
   return (timeout + delay);
 }

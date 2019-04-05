@@ -53,9 +53,7 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
 {
 
   /* change byte order */
-  NTOHS(demand_pkt->demand);
   NTOHS(demand_pkt->time_left);
-  NTOHS(demand_pkt->bytes);
   
   if(demand_pkt->demand > THRESHOLD_DEMAND &&
      demand_pkt->time_left > THRESHOLD_TIMEOUT_MSEC) {

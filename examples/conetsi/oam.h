@@ -5,14 +5,11 @@
 /* threshold defines */
 #define THRESHOLD_PRIORITY 40
 /*---------------------------------------------------------------------------*/
+#define NTOHS(x)  (x = uip_ntohs(x))
+#define HTONS(x)  (x = uip_htons(x))
+/*---------------------------------------------------------------------------*/
 #define OAM_POLL_INTERVAL   (5 * CLOCK_SECOND)
 #define MAX_OAM_ENTRIES     10
-/*---------------------------------------------------------------------------*/
-/* configured module IDs */
-#define BAT_VOLT_ID          0
-#define FRAME_DROP_RATE_ID   1
-#define ETX_ID               2
-#define QUEUE_STATE_ID       3
 /*---------------------------------------------------------------------------*/
 /* Priority range */
 #define LOWEST_PRIORITY     100
@@ -43,23 +40,26 @@
 #define THRESHOLD_DEMAND   (MAX_DEMAND / 40)
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
-  uint16_t bytes;
-  uint16_t priority;
+  uint8_t bytes;
+  uint8_t priority;
   struct timer *exp_timer;
 };
 /*---------------------------------------------------------------------------*/
 struct oam_val {
   uint16_t timeout; /* timeout in ticks */
-  uint16_t priority;
-  uint16_t bytes;
+  uint8_t priority;
+  uint8_t bytes;
   char data[10];
 };
 /*---------------------------------------------------------------------------*/
+typedef uint8_t oam_module_id_t;
+
 struct oam_module {
-  uint16_t id;
-  uint16_t lock;
-  uint16_t bytes;
-  uint16_t priority;
+  uint8_t id;
+  uint8_t lock;
+  uint8_t mod_priority;
+  uint8_t bytes;
+  uint8_t data_priority;
   struct ctimer exp_timer;
   
   void (* get_val) (struct oam_val *);
