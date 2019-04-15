@@ -107,6 +107,7 @@ uint32_t get_backoff(uint16_t demand, uint32_t timeout_rticks);
 void set_parent(const uip_ipaddr_t *p);
 uip_ipaddr_t *get_parent();
 void add_child(const uip_ipaddr_t *c);
+void rm_child(const uip_ipaddr_t *c);
 int child_count(void);
 
 /* callback for handling UDP */

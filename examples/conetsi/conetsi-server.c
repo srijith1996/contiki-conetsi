@@ -203,8 +203,10 @@ udp_rx_callback(struct simple_udp_connection *c,
         LOG_INFO_6ADDR(sender_addr);
         LOG_INFO_("\n");
 
+        rm_child(sender_addr);
         send_nsi((void *)&conetsi_data, datalen);
         if(child_count() <= 0) {
+          LOG_DBG("Resetting to IDLE, child count 0\n");
           current_state = STATE_IDLE;
         }
         /*TODO: figure out what else needs to be done here */
@@ -327,7 +329,7 @@ PROCESS_THREAD(backoff_polling_process, ev, data)
     yield = 1;
     all_flagged = 0;
 
-    LOG_DBG("Woken: count=%d\n", count);
+    /* LOG_DBG("Woken: count=%d\n", count); */
 
     for(i = 0; i < count; i++) {
       LOG_DBG("Parent ");

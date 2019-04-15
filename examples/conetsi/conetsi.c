@@ -181,8 +181,33 @@ get_parent()
 void
 add_child(const uip_ipaddr_t *c)
 {
-  uip_ipaddr_copy(&(me.child_node[child_ct]), c);
-  child_ct++;
+  uip_ipaddr_copy(&(me.child_node[child_ct++]), c);
+}
+/*---------------------------------------------------------------------------*/
+void
+rm_child(const uip_ipaddr_t *c)
+{
+  int i;
+
+  LOG_DBG("Remove child requested (child count: %d, Addr: ", child_ct);
+  LOG_DBG_6ADDR(c);
+  LOG_DBG_(")\n");
+
+  for(i = 0; i < child_ct; i++) {
+    LOG_DBG("child[%d] = ", i);
+    LOG_DBG_6ADDR(&(me.child_node[i]));
+    LOG_DBG("\n");
+
+    if(uip_ipaddr_cmp(&(me.child_node[i]), c)) {
+      LOG_INFO("Removing existing child ");
+      LOG_INFO_6ADDR(c);
+      LOG_INFO_("\n");
+
+      uip_ipaddr_copy(&(me.child_node[i]), &(me.child_node[child_ct]));
+      child_ct--;
+      break;
+    }
+  }
 }
 /*---------------------------------------------------------------------------*/
 int
