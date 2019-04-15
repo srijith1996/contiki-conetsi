@@ -110,7 +110,7 @@ get_nsi_timeout()
     return -1;
   }
 
-  LOG_DBG("Returning timeout, timer(%p) %d\n",
+  LOG_DBG("Returning timeout, timer(%p) %ld\n",
           oam_buf_state.exp_timer,
           timer_remaining(oam_buf_state.exp_timer));
 
