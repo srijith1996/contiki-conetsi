@@ -132,10 +132,6 @@ global_exp()
     return;
   }
 
-  if(!modules[0].lock) {
-    oam_buf_state.exp_timer = &(modules[0].exp_timer.etimer.timer);
-  }
-
   int i;
   for(i = 1; i < count; i++) {
     /* only check unlocked modules */
@@ -144,6 +140,11 @@ global_exp()
     }
     LOG_DBG("Global expiration check, timer(%p), module_timer(%p)\n",
              oam_buf_state.exp_timer, &(modules[i].exp_timer.etimer.timer));
+
+    if(oam_buf_state.exp_timer == NULL) {
+      oam_buf_state.exp_timer = &(modules[i].exp_timer.etimer.timer);
+      continue;
+    }
 
     if(timer_remaining(oam_buf_state.exp_timer) >
        timer_remaining(&(modules[i].exp_timer.etimer.timer))) {
