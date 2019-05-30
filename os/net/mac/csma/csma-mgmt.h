@@ -10,8 +10,10 @@
 /*---------------------------------------------------------------------------*/
 #if CSMA_MGMT
 void csma_mgmt_qlen_init(void);
-
 void csma_mgmt_qlen_record(int len);
+
+void csma_mgmt_rtx_init(void);
+void csma_mgmt_rtx_record(int rtx);
 #endif /* CSMA_MGMT */
 /*---------------------------------------------------------------------------*/
 #endif /* _CSMA_MGMT_QLEN_H_ */

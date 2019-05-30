@@ -394,6 +394,12 @@ tx_ok(struct packet_queue *q, struct neighbor_queue *n, int num_transmissions)
 {
   n->collisions = 0;
   n->transmissions += num_transmissions;
+
+#if CSMA_MGMT
+  /* CUSTOM: For RTX management module */
+  csma_mgmt_rtx_record(n->transmissions);
+#endif /* CSMA_MGMT */
+
   tx_done(MAC_TX_OK, q, n);
 }
 /*---------------------------------------------------------------------------*/

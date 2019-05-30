@@ -259,6 +259,12 @@ rpl_dag_ready_to_advertise(void)
   }
 }
 /*---------------------------------------------------------------------------*/
+rpl_rank_t
+get_current_rank()
+{
+  return curr_instance.dag.rank;
+}
+/*---------------------------------------------------------------------------*/
 /* Updates rank and parent */
 void
 rpl_dag_update_state(void)

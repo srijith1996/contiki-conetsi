@@ -137,6 +137,7 @@ init(void)
   /* CUSTOM: CoNetSI management module */
 #if CSMA_MGMT
   csma_mgmt_qlen_init();
+  csma_mgmt_rtx_init();
 #endif /* CSMA_MGMT */
 
   on();
