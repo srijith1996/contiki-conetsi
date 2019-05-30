@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <random.h>
 #include <string.h>
+#include "net/routing/rpl-lite/rpl.h"
 
 #if CONF_DUMMY
 #include "oam.h"
@@ -10,6 +11,14 @@
 #include "sys/log.h"
 #define LOG_MODULE "Dummy"
 #define LOG_LEVEL LOG_LEVEL_DUMMY
+/*---------------------------------------------------------------------------*/
+#define DUMMY_PRIORITY 10
+/*---------------------------------------------------------------------------*/
+extern rpl_rank_t get_current_rank(void);
+static int p[2][2] = { {4, 9},
+                     {0, 4} };
+static int t[2][2] = { {4, 9},
+                     {0, 2} };
 /*---------------------------------------------------------------------------*/
 static oam_module_id_t dummy_id;
 struct dummy {
@@ -50,9 +59,35 @@ get_value(struct oam_val *oam)
     values.min_val = values.dummy_val;
   }
 
-  oam->timeout = (random_rand() % (5 * CLOCK_SECOND)) + 5000;
-  oam->priority = random_rand() % 40;
-  oam->bytes = 6;
+  int x;
+  if(get_current_rank() < 256) {
+    x = 0;
+  } else {
+    x = 1;
+  }
+
+  /* priority is randomly assigned between 1, 10, 40 */
+  uint16_t prob = random_rand() / (RANDOM_RAND_MAX / 10);
+  if(prob < p[x][0]) {                            /* p = 1/5 */
+    oam->priority = 1;
+  } else if(prob >= p[x][0] && prob < p[x][1]) {  /* p = 1/2 */
+    oam->priority = 3;
+  } else {                                        /* p = 3/10 */
+    oam->priority = 5;
+  }
+
+  /* criticality of data depends on timeout */
+  prob = random_rand() / (RANDOM_RAND_MAX / 10);
+  if(prob < t[x][0]) {
+    oam->timeout = 1;
+  } else if(prob >= t[x][0] && prob < t[x][1]) {
+    oam->timeout = 3;
+  } else {
+    oam->timeout = 5;
+  }
+  oam->timeout *= CLOCK_SECOND;
+
+  oam->bytes = sizeof(struct dummy);
 
   LOG_INFO("Generated: P=%d, T=%d, B=%d\n", oam->priority,
            oam->timeout, oam->bytes);

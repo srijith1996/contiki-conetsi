@@ -14,6 +14,10 @@
  * This needs an update in the next iteration
  */
 /*---------------------------------------------------------------------------*/
+#if CONF_DUMMY
+extern void dummy_init(void);
+#endif /* CONF_DUMMY */
+/*---------------------------------------------------------------------------*/
 struct oam_stats oam_buf_state;
 struct oam_module modules[MAX_OAM_ENTRIES];
 
@@ -115,7 +119,7 @@ get_nsi_timeout()
           timer_remaining(oam_buf_state.exp_timer));
 
 
-  return (uint16_t)timer_remaining(oam_buf_state.exp_timer);
+  return (uint16_t)timer_remaining(oam_buf_state.exp_timer) - CONF_TICK_DECR;
 }
 /*---------------------------------------------------------------------------*/
 uint16_t
@@ -221,7 +225,7 @@ oam_string(char *buf)
 
       LOG_DBG("Copied module data (%d) - ", modules[i].id);
       for(j = pctr; j < ctr; j++) {
-        LOG_DBG_("%02x:", *((uint8_t *)buf + pctr + j));
+        LOG_DBG_("%02x:", *((uint8_t *)buf + j));
       }
       LOG_DBG_("\n");
 
@@ -355,7 +359,8 @@ PROCESS_THREAD(oam_collect_process, ev, data)
         /* Setup callback timer to cleanup this OAM process */
         ctimer_set(&modules[iter].exp_timer, return_val.timeout,
                    cleanup, &modules[iter]);
-        LOG_DBG("Started CTimer for module %d\n", modules[iter].id);
+        LOG_DBG("Started CTimer for module %d, (ticks: %d)\n",
+                modules[iter].id, return_val.timeout);
 
         modules[iter].bytes = return_val.bytes;
         memcpy(modules[iter].data, return_val.data, return_val.bytes);
@@ -380,6 +385,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
       }
     }
 
+    LOG_INFO(" (Threshold: %d, MAX: %d)", THRESHOLD_DEMAND, MAX_DEMAND);
     if(demand() > THRESHOLD_DEMAND) {
       LOG_INFO("Waking CoNetSI");
       LOG_DBG_(" (Threshold: %d, MAX: %d)", THRESHOLD_DEMAND, MAX_DEMAND);

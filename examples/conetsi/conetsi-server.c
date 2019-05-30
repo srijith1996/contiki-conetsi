@@ -26,6 +26,7 @@ static char conetsi_data[THRESHOLD_PKT_SIZE];
 
 static struct ctimer idle_timer;
 static struct etimer bo_poll_timer;
+/* static struct etimer start_timer; */
 process_event_t genesis_event;
 
 /* for notifications from UIP */
@@ -150,10 +151,6 @@ udp_rx_callback(struct simple_udp_connection *c,
 
       add_parent(sender_addr, (void *)pkt->data);
 
-    /* while idling forward any stray NSI */
-    } else if(pkt->type == TYPE_NSI) {
-      set_parent(NULL);
-      send_nsi((void *)&conetsi_data, datalen);
     }
     break;
 
@@ -265,6 +262,20 @@ PROCESS_THREAD(conetsi_server_process, ev, data)
   LOG_INFO("Waiting for default route\n");
   PROCESS_YIELD_UNTIL(ev == UIP_DS6_NOTIFICATION_DEFRT_ADD);
 
+#if 0
+  etimer_set(&start_timer, 300 * CLOCK_SECOND);
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&start_timer));
+
+    if(etimer_expired(&start_timer)) {
+      process_start(&backoff_polling_process, NULL);
+      process_start(&oam_collect_process, NULL);
+
+      break;
+    }
+  }
+#endif /* 0 */
+  
   /* if needed remove further callbacks from UIP */
   uip_ds6_notification_rm(&uip_notification);
 

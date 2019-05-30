@@ -30,14 +30,17 @@
 /*---------------------------------------------------------------------------*/
 #define DEMAND_FACTOR    (CLOCK_SECOND / LOWEST_PRIORITY)
 #define THRESHOLD_PKT_SIZE       90
-#define THRESHOLD_TIMEOUT_MSEC   1000
+#define THRESHOLD_TIMEOUT_MSEC   100
 #define THRESHOLD_TIMEOUT_TICKS ((THRESHOLD_TIMEOUT_MSEC * CLOCK_SECOND)/1000)
+
+#define CONF_TICK_DECR  3
 /*---------------------------------------------------------------------------*/
 #define MAX_DEMAND       ((DEMAND_FACTOR                            \
                         * THRESHOLD_PKT_SIZE                       \
                         * (LOWEST_PRIORITY - HIGHEST_PRIORITY))    \
                         / THRESHOLD_TIMEOUT_TICKS)
-#define THRESHOLD_DEMAND   (MAX_DEMAND / 40)
+/* #define THRESHOLD_DEMAND   (MAX_DEMAND / 200) */
+#define THRESHOLD_DEMAND 0
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint8_t bytes;
