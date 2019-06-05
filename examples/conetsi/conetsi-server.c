@@ -62,6 +62,15 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
   if(demand_pkt->demand > THRESHOLD_DEMAND &&
      demand_pkt->time_left > THRESHOLD_TIMEOUT_MSEC) {
 
+    /* do not add parent if too many empty_hops */
+    if(demand_pkt->empty_hops > MAX_EMPTY_HOPS) {
+      return;
+    }
+    else if(demand_pkt->empty_hops == MAX_EMPTY_HOPS &&
+       demand() == 0) {
+      return;
+    }
+
     LOG_DBG("Parent can be added\n");
 
     current_state = STATE_BACKOFF;
@@ -75,6 +84,7 @@ add_parent(const uip_ipaddr_t *sender, struct nsi_demand *demand_pkt)
     parent[count].timeout = msec2rticks(demand_pkt->time_left);
     parent[count].demand = demand_pkt->demand;
     parent[count].bytes = demand_pkt->bytes;
+    parent[count].empty_hops = demand_pkt->empty_hops;
 
     parent[count].prev_demand = demand();
     parent[count].backoff = get_backoff(demand(), parent[count].timeout);

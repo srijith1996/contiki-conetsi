@@ -41,11 +41,17 @@ send_demand_adv(struct parent_details *parent)
   demand_buf->demand = demand();
   timeout = ticks2rticks(get_nsi_timeout());
   demand_buf->bytes = get_bytes();
+  if(demand_buf->demand == 0) {
+    demand_buf->empty_hops = 1;
+  } else {
+    demand_buf->empty_hops = 0;
+  }
 
   if(parent != NULL) {
     uip_ipaddr_copy(&(demand_buf->parent_addr), &(parent->addr));
     demand_buf->demand += parent->demand;
     demand_buf->bytes += parent->bytes;
+    demand_buf->empty_hops += parent->empty_hops;
     if(parent->timeout < timeout) {
       timeout = parent->timeout;
     }

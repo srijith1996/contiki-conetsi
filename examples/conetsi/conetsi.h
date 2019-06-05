@@ -31,6 +31,7 @@
 #define BACKOFF_POLL_INTERVAL 5
 
 #define MAX_PARENT_REQ        5
+#define MAX_EMPTY_HOPS        2
 /*---------------------------------------------------------------------------*/
 /* Configure how conservative the nodes should
  * be about the delay incurred in transmission
@@ -56,6 +57,7 @@ struct parent_details {
                               added to the backoff */
   uint16_t demand;
   uint16_t bytes;
+  uint8_t empty_hops;
   uint8_t flagged;
   uint8_t pad;
 };
@@ -70,7 +72,8 @@ struct nsi_demand {
   uint16_t time_left;
   uint8_t demand;
   uint8_t bytes;
-  uint8_t pad[4];
+  uint8_t empty_hops;     /* count of empty nodes in path */
+  uint8_t pad[3];
 };
 
 struct nsi_forward {
@@ -78,7 +81,7 @@ struct nsi_forward {
   char data[THRESHOLD_PKT_SIZE];
 };
 
-#define SIZE_DA (sizeof(struct nsi_demand) - 4)
+#define SIZE_DA (sizeof(struct nsi_demand) - 3)
 /*---------------------------------------------------------------------------*/
 /* macros for conversion */
 #define msec2ticks(x) ((uint16_t)(((uint64_t)x * CLOCK_SECOND) / 1000))
