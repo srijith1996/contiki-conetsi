@@ -94,12 +94,12 @@ demand()
     return 0;
   }
 
-  int demand = DEMAND_FACTOR * oam_buf_state.bytes;
+  int demand = DEMAND_FACTOR * get_bytes();
   demand *= (LOWEST_PRIORITY - oam_buf_state.priority);
   demand /= timer_remaining(oam_buf_state.exp_timer);
 
   LOG_DBG("Demand computation: df=%d, B=%d, T=%lu, P=%d\n", DEMAND_FACTOR,
-         oam_buf_state.bytes,
+         get_bytes(),
          timer_remaining(oam_buf_state.exp_timer),
          oam_buf_state.priority);
   LOG_DBG("Demand: %d\n", demand);
