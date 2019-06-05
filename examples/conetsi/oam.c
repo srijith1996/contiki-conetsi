@@ -385,7 +385,6 @@ PROCESS_THREAD(oam_collect_process, ev, data)
       }
     }
 
-    LOG_INFO(" (Threshold: %d, MAX: %d)", THRESHOLD_DEMAND, MAX_DEMAND);
     if(demand() > THRESHOLD_DEMAND) {
       LOG_INFO("Waking CoNetSI");
       LOG_DBG_(" (Threshold: %d, MAX: %d)", THRESHOLD_DEMAND, MAX_DEMAND);

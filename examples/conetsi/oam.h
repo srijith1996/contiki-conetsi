@@ -39,8 +39,8 @@
                         * THRESHOLD_PKT_SIZE                       \
                         * (LOWEST_PRIORITY - HIGHEST_PRIORITY))    \
                         / THRESHOLD_TIMEOUT_TICKS)
-/* #define THRESHOLD_DEMAND   (MAX_DEMAND / 200) */
-#define THRESHOLD_DEMAND 0
+#define THRESHOLD_DEMAND   (MAX_DEMAND / 200)
+/* #define THRESHOLD_DEMAND 0 */
 /*---------------------------------------------------------------------------*/
 struct oam_stats {
   uint8_t bytes;
