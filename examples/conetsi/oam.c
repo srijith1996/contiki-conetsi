@@ -125,6 +125,9 @@ get_nsi_timeout()
 uint16_t
 get_bytes()
 {
+  if(oam_buf_state.bytes <= LINKADDR_SIZE + 1) {
+    return 0;
+  }
   return (uint16_t)oam_buf_state.bytes;
 }
 /*---------------------------------------------------------------------------*/
@@ -200,13 +203,11 @@ int
 oam_string(char *buf)
 {
   int ctr = 0;
-  int i;
+  int i, entered = 0;
 
-  sprintf(buf, "%c", (uint8_t)(oam_buf_state.bytes - LINKADDR_SIZE - 1));
-  ctr += 1;
-    
   /* Always store module data in network byte order */
   for(i = 0; i < count; i++) {
+
     LOG_DBG("Checking validity for %d (locked: %d)\n",
             modules[i].id, modules[i].lock);
 
@@ -216,6 +217,12 @@ oam_string(char *buf)
       int j;
       int pctr = ctr;
 #endif /* (LOG_LEVEL_OAM == LOG_LEVEL_DBG) */
+      if(!entered) {
+        sprintf(buf, "%c", (uint8_t)(oam_buf_state.bytes - LINKADDR_SIZE - 1));
+        ctr += 1;
+        entered = 1;
+      }
+
       memcpy((buf + ctr), &(modules[i].id), 1);
       ctr += 1;
       memcpy((buf + ctr), &(modules[i].bytes), 1);
