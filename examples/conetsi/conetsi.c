@@ -104,12 +104,12 @@ int
 fwd_nsi(const uint8_t *buf, int buf_len)
 {
   memcpy(conetsi_buf, buf, 1);
-  memcpy(conetsi_buf + 1, buf + 1 + LINKADDR_SIZE,
-          buf_len - 1 - LINKADDR_SIZE);
+  memcpy(conetsi_buf + 1, buf + 1 + sizeof(uip_ipaddr_t),
+          buf_len - 1 - sizeof(uip_ipaddr_t));
 
   simple_udp_sendto(&nsi_conn, &conetsi_buf,
-                    buf_len - LINKADDR_SIZE, &host_addr);
-  return buf_len - LINKADDR_SIZE;
+                    buf_len - sizeof(uip_ipaddr_t), &host_addr);
+  return buf_len - sizeof(uip_ipaddr_t);
 }
 /*---------------------------------------------------------------------------*/
 int
