@@ -156,16 +156,19 @@ send_nsi(const uint8_t *buf, int buf_len)
   memcpy(conetsi_buf + add_len, &tmp, 1);
   add_len += buf_len - buf_data_start;
 
-  memcpy(conetsi_buf + add_len, &uip_lladdr, LINKADDR_SIZE);
-  add_len += LINKADDR_SIZE;
+  if(get_bytes() > 0) {
+    memcpy(conetsi_buf + add_len, &uip_lladdr, LINKADDR_SIZE);
+    add_len += LINKADDR_SIZE;
 
-  /* Add my NSI data */
-  int tmp_strlen = oam_string(conetsi_buf + add_len);
-  /* skip adding if I initiate and don't have data */
-  if(buf == NULL && tmp_strlen == 0) {
+    /* Add my NSI data */
+    int tmp_strlen = oam_string(conetsi_buf + add_len);
+    add_len += tmp_strlen;
+
+    /* skip adding if I initiate and don't have data */
+  } else if(buf == NULL) {
+    LOG_DBG("Refraining from adding NULL NSI\n");
     return 0;
   }
-  add_len += tmp_strlen;
 
   int i;
   LOG_DBG("Length of NSI: %d\n", add_len);
