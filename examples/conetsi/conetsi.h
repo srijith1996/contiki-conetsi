@@ -94,6 +94,7 @@ struct nsi_forward {
                           / RTIMER_SECOND))
 
 /* functions used by processes */
+int fwd_nsi(const uint8_t *buf, int buf_len);
 int send_nsi(const uint8_t *buf, int buf_len);
 
 /* Register Multicast address for CoNeStI */
@@ -109,6 +110,7 @@ uint32_t get_backoff(uint16_t demand, uint32_t timeout_rticks);
 /* Get and set parent and child */
 void set_parent(const uip_ipaddr_t *p);
 uip_ipaddr_t *get_parent();
+int get_childct();
 void add_child(const uip_ipaddr_t *c);
 void rm_child(const uip_ipaddr_t *c);
 int child_count(void);

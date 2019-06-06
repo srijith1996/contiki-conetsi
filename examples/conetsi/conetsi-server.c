@@ -144,6 +144,22 @@ udp_rx_callback(struct simple_udp_connection *c,
 
   LOG_DBG("Packet type: %d\n", pkt->type);
 
+
+  /* Initially confirm if the incoming packet is stray NSI */
+  if(current_state != STATE_DEMAND_ADVERTISED) {
+    if(pkt->type == TYPE_NSI) {
+      /* Not commited by me so not my child */
+      struct nsi_forward *nsi = (void *)pkt->data;
+      if(!uip_ds6_is_my_addr(&(nsi->to)) || get_childct() == 0) {
+        return;
+      }
+      if(uip_ds6_is_my_addr(&(nsi->to))) {
+        rm_child(sender_addr);
+        fwd_nsi((void *)&conetsi_data, datalen);
+      }
+    }
+  }
+
   switch(current_state) {
 
    case STATE_IDLE:
@@ -212,11 +228,10 @@ udp_rx_callback(struct simple_udp_connection *c,
 
         rm_child(sender_addr);
         send_nsi((void *)&conetsi_data, datalen);
-        if(child_count() <= 0) {
-          LOG_DBG("Resetting to IDLE, child count 0\n");
-          current_state = STATE_IDLE;
-        }
-        /*TODO: figure out what else needs to be done here */
+
+        /* Since I received NSI that I asked for, I will reset my state */
+        LOG_DBG("Resetting to IDLE\n");
+        current_state = STATE_IDLE;
       }
     } else if(pkt->type == TYPE_DEMAND_ADVERTISEMENT) {
       struct nsi_demand *dmnd = (void *)pkt->data;

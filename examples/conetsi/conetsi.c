@@ -101,6 +101,18 @@ send_demand_adv(struct parent_details *parent)
 }
 /*---------------------------------------------------------------------------*/
 int
+fwd_nsi(const uint8_t *buf, int buf_len)
+{
+  memcpy(conetsi_buf, buf, 1);
+  memcpy(conetsi_buf + 1, buf + 1 + LINKADDR_SIZE,
+          buf_len - 1 - LINKADDR_SIZE);
+
+  simple_udp_sendto(&nsi_conn, &conetsi_buf,
+                    buf_len - LINKADDR_SIZE, &host_addr);
+  return buf_len - LINKADDR_SIZE;
+}
+/*---------------------------------------------------------------------------*/
+int
 send_nsi(const uint8_t *buf, int buf_len)
 {
   /* first byte of buf is the length */
@@ -148,7 +160,12 @@ send_nsi(const uint8_t *buf, int buf_len)
   add_len += LINKADDR_SIZE;
 
   /* Add my NSI data */
-  add_len += oam_string(conetsi_buf + add_len);
+  int tmp_strlen = oam_string(conetsi_buf + add_len);
+  /* skip adding if I initiate and don't have data */
+  if(buf == NULL && tmp_strlen == 0) {
+    return 0;
+  }
+  add_len += tmp_strlen;
 
   int i;
   LOG_DBG("Length of NSI: %d\n", add_len);
@@ -182,6 +199,12 @@ uip_ipaddr_t *
 get_parent()
 {
   return &(me.parent_node);
+}
+/*---------------------------------------------------------------------------*/
+int
+get_childct()
+{
+  return child_ct++;
 }
 /*---------------------------------------------------------------------------*/
 void
