@@ -232,7 +232,7 @@ rm_child(const uip_ipaddr_t *c)
   for(i = 0; i < child_ct; i++) {
     LOG_DBG("child[%d] = ", i);
     LOG_DBG_6ADDR(&(me.child_node[i]));
-    LOG_DBG("\n");
+    LOG_DBG_("\n");
 
     if(uip_ipaddr_cmp(&(me.child_node[i]), c)) {
       LOG_INFO("Removing existing child ");
