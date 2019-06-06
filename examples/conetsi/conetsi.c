@@ -204,12 +204,16 @@ get_parent()
 int
 get_childct()
 {
-  return child_ct++;
+  return child_ct;
 }
 /*---------------------------------------------------------------------------*/
 void
 add_child(const uip_ipaddr_t *c)
 {
+  if(child_ct >= MAX_CHILDREN) {
+    LOG_INFO("Child count is beyond %d. Ignoring...\n", MAX_CHILDREN);
+    return;
+  }
   uip_ipaddr_copy(&(me.child_node[child_ct++]), c);
 }
 /*---------------------------------------------------------------------------*/
@@ -232,8 +236,7 @@ rm_child(const uip_ipaddr_t *c)
       LOG_INFO_6ADDR(c);
       LOG_INFO_("\n");
 
-      uip_ipaddr_copy(&(me.child_node[i]), &(me.child_node[child_ct]));
-      child_ct--;
+      uip_ipaddr_copy(&(me.child_node[i]), &(me.child_node[--child_ct]));
       break;
     }
   }
