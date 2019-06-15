@@ -15,7 +15,7 @@
  */
 /*---------------------------------------------------------------------------*/
 #if CONF_DUMMY
-extern void dummy_init(void);
+extern void priority_sim_init(void);
 #endif /* CONF_DUMMY */
 /*---------------------------------------------------------------------------*/
 struct oam_stats oam_buf_state;
@@ -328,7 +328,7 @@ PROCESS_THREAD(oam_collect_process, ev, data)
   oam_buf_state.exp_timer = NULL;
 
 #if CONF_DUMMY
-  dummy_init();
+ priority_sim_init();
 #endif /* CONF_DUMMY */
 
   while(1) {

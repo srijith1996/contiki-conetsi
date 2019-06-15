@@ -19,7 +19,7 @@
 #define LOG_LEVEL LOG_LEVEL_DUMMY
 #define DUMMY_PRIORITY 10
 
-#define MAX_PROCS 1000
+#define MAX_PROCS 10000
 /*----------------------------------------------------------------------*/
 #define MAXIMUM(a, b) ((a > b) ? a : b)
 /*----------------------------------------------------------------------*/
@@ -58,10 +58,10 @@ static void get_value(struct oam_val *oam)  {
    oam->timeout *=2*CLOCK_SECOND;
    oam->bytes = 2*sizeof(uint16_t);
    LOG_INFO("Generated: P=%d, T=%d, B=%d\n", oam->priority , oam->timeout, oam->bytes);
-   strncpy((oam->data),"Datasource",10);
+   strncpy(oam->data,"Datasource",10);
 }
 /*-------------------------------------------------------------------------*/
-static void *get_conf(void)  {
+static void* get_conf(void)  {
     return NULL;
 }
 /*-------------------------------------------------------------------------*/
@@ -86,22 +86,29 @@ void priority_sim_init(void) {
 /*-------------------------------------------------------------------------*/
 /*generate poisson's distribution*/
 int poisson_process(int rate) { 
-   int k = 0,l;
-   l=pow(M_E, rate);
-   long p; 
-   do{
-      k++;
-      p *= random_rand()%65536;
-      } while (p<l);  
-   
-   
-   return k;   
+ int lamda,k=0,step=500;
+ double l;
+ double  p =1.0;
+ lamda = rate;
+ do {
+    k = k+1;
+    l = (randomrand()%65536)/65536;
+    p*=l;
+   while((P<1) && lamda>0)
+    if (lamda>step) {
+      p*=pow(M_E,step);
+    }else {
+      p*=pow(M_E,step);
+      lamda=0;
+    }
+}while(p>1);
+return (k-1);
 }
 /*-----------------------------------------------------------------------*/
 /*generate exponential distribution*/
-int exponential_process(int rate) {       
-    int x = random_rand()%65536;
-    int r =(int)((1/rate)*(log(x-1)));
+  double exponential_process(int rate) {
+     double x = (random_rand()%65536)/65536;
+     double r =(int)(-(1/rate)*(log(x-1)));
   
   return r;
 }

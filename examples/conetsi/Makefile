@@ -5,7 +5,7 @@ CONTIKI=../..
 
 #WITH_IPV6 = 1
 
-CONTIKI_TARGET_SOURCEFILES += oam.c conetsi.c dummy-module.c
+CONTIKI_TARGET_SOURCEFILES += oam.c conetsi.c pmodule.c
 LDFLAGS += -lm
 
 include $(CONTIKI)/Makefile.include
