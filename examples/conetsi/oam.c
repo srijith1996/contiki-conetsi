@@ -15,8 +15,11 @@
  */
 /*---------------------------------------------------------------------------*/
 #if CONF_DUMMY
-extern void priority_sim_init(void);
+extern void dummy_init(void);
 #endif /* CONF_DUMMY */
+#if CONF_QSIM_MODULE
+extern void priority_sim_init(void);
+#endif /* CONF_QSIM_MODULE */
 /*---------------------------------------------------------------------------*/
 struct oam_stats oam_buf_state;
 struct oam_module modules[MAX_OAM_ENTRIES];
@@ -230,11 +233,13 @@ oam_string(char *buf)
       memcpy((buf + ctr), &(modules[i].data), modules[i].bytes);
       ctr += modules[i].bytes;
 
+#if (LOG_LEVEL_OAM == LOG_LEVEL_DBG)
       LOG_DBG("Copied module data (%d) - ", modules[i].id);
       for(j = pctr; j < ctr; j++) {
         LOG_DBG_("%02x:", *((uint8_t *)buf + j));
       }
       LOG_DBG_("\n");
+#endif /* (LOG_LEVEL_OAM == LOG_LEVEL_DBG) */
 
       /* notify the modules to reset counters */
       modules[i].reset();
@@ -328,8 +333,12 @@ PROCESS_THREAD(oam_collect_process, ev, data)
   oam_buf_state.exp_timer = NULL;
 
 #if CONF_DUMMY
- priority_sim_init();
+  dummy_init();
 #endif /* CONF_DUMMY */
+#if CONF_QSIM_MODULE
+  LOG_INFO("Initializing MM1 queue module\n");
+  priority_sim_init();
+#endif /* CONF_QSIM_DUMMY */
 
   while(1) {
     etimer_set(&oam_poll_timer, OAM_POLL_INTERVAL);
