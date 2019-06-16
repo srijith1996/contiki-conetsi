@@ -9,22 +9,22 @@
 #include "oam.h"
 #include "net/routing/rpl-lite/rpl.h"
 
-#include "sys/log.h"
-#define LOG_MODULE "MM1 Queue"
-#define LOG_LEVEL LOG_LEVEL_QSIM_MOD
+//#include "sys/log.h"
+//#define LOG_MODULE "MM1 Queue"
+//#define LOG_LEVEL LOG_LEVEL_QSIM_MOD
 /*---------------------------------------------------------------*/
 #define SAMPLE_TIME_SEC 1
 /*---------------------------------------------------------------*/
 /* for configuring poissons process
  * parameters can be set manually
- */
+ */ 
 #define ARRVL_RATE 5        //IN PER HOUR
 #define SERV_RATE  2
 #define TOTAL_TIME 1
 #define QUEUE_SIZE 14
 #define MM1Q_PRIORITY 10
-
-#define MAX_PROCS 500     /* Don't make this too high (memory) */
+#define MAXIMUM(a,b) ((a > b) ? a : b)
+#define MAX_PROCS 200     /* Don't make this too high (memory) */
 /*---------------------------------------------------------------*/
 static struct ctimer small;
 static struct ctimer big;
@@ -39,7 +39,7 @@ static int IAT[MAX_PROCS], ST[MAX_PROCS],
 /*---------------------------------------------------------------*/
 /*generate poisson's distribution*/
 static int
-poisson_process(int rate)
+poisson_process(float rate)
 { 
   int k=0;
   double step = 50;
@@ -50,7 +50,7 @@ poisson_process(int rate)
     l = (random_rand() % RANDOM_RAND_MAX)
             / (RANDOM_RAND_MAX * 1.0);
     p *= l;
-    LOG_DBG("[Poisson] Random p: %d\n", p);
+    //LOG_DBG("[Poisson] Random p: %d\n", p);
 
     while(p < 1 && rate > 0) {
       if(rate > step) {
@@ -63,18 +63,18 @@ poisson_process(int rate)
     }
   } while(p > 1);
 
-  printf("Generated Poisson: %d\n", (k-1));
-  return (k-1);
+//  printf("Generated Poisson: %d\n", (k-1));
+  return (k-1);   
 }
 /*---------------------------------------------------------------*/
 /*generate exponential distribution*/
-static double
-exponential_process(int rate)
-{
+static int
+exponential_process(float rate)
+{       
   float x = (random_rand()%RANDOM_RAND_MAX)/(RANDOM_RAND_MAX*1.0);
-  double r = (int)(-log(x)/(1.0 * rate));
+  int r = (int)(-log(x)/(1.0 * rate));
   
-  printf("Generated Exponential: %d\n", r);
+  //printf("Generated Exponential: %d\n", r);
   return r;
 }
 /*---------------------------------------------------------------*/
@@ -100,7 +100,7 @@ op_init()     /* Func for big timer */
   double temp;
 
   /* sample total time */
-  printf("Sampling poisson\n");
+  //printf("Sampling poisson\n");
   len = poisson_process(ARRVL_RATE) * TOTAL_TIME;
   time = 0;
 
@@ -112,7 +112,7 @@ op_init()     /* Func for big timer */
   
   /* Populate Inter-Arrival_Times (IAT)*/
   for(i=0;i<len;i++) {
-    printf("Sampling exponential\n");
+    //printf("Sampling exponential\n");
     temp = exponential_process(1.0/ARRVL_RATE) * 3600.0; 
     IAT[i] = (i != 0) ? (int)floor(temp) : 0;
   }    
