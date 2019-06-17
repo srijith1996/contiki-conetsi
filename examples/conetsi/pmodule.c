@@ -9,9 +9,9 @@
 #include "oam.h"
 #include "net/routing/rpl-lite/rpl.h"
 
-//#include "sys/log.h"
-//#define LOG_MODULE "MM1 Queue"
-//#define LOG_LEVEL LOG_LEVEL_QSIM_MOD
+#include "sys/log.h"
+#define LOG_MODULE "MM1 Queue"
+#define LOG_LEVEL LOG_LEVEL_QSIM_MOD
 /*---------------------------------------------------------------*/
 #define SAMPLE_TIME_SEC 1
 /*---------------------------------------------------------------*/
@@ -23,7 +23,6 @@
 #define TOTAL_TIME 1
 #define QUEUE_SIZE 14
 #define MM1Q_PRIORITY 10
-#define MAXIMUM(a,b) ((a > b) ? a : b)
 #define MAX_PROCS 200     /* Don't make this too high (memory) */
 /*---------------------------------------------------------------*/
 static struct ctimer small;
@@ -41,7 +40,7 @@ static int IAT[MAX_PROCS], ST[MAX_PROCS],
 static int
 poisson_process(float rate)
 { 
-  int k=0;
+  int k = 0;
   double step = 50;
   double p = 1.0, l;
 
@@ -63,7 +62,7 @@ poisson_process(float rate)
     }
   } while(p > 1);
 
-//  printf("Generated Poisson: %d\n", (k-1));
+  LOG_DBG("Generated Poisson: %d\n", (k-1));
   return (k-1);   
 }
 /*---------------------------------------------------------------*/
@@ -74,7 +73,7 @@ exponential_process(float rate)
   float x = (random_rand()%RANDOM_RAND_MAX)/(RANDOM_RAND_MAX*1.0);
   int r = (int)(-log(x)/(1.0 * rate));
   
-  //printf("Generated Exponential: %d\n", r);
+  LOG_DBG("Generated Exponential: %d\n", r);
   return r;
 }
 /*---------------------------------------------------------------*/
@@ -146,10 +145,11 @@ op_init()     /* Func for big timer */
 static void
 reset(void)
 {
-  time=0;
-  state=0;
+  /* Do not reset the sampling process here, since this is called
+   * at every module cleanup.  This function should only be used
+   * to reset the average counters, etc.
+   */
 
-  op_init();
 }
 /*---------------------------------------------------------------*/
 static int
@@ -169,13 +169,13 @@ static void
 get_value(struct oam_val *oam)
 {
   oam->priority = (15 - state);
-  oam->timeout *= 2 * CLOCK_SECOND;
+  oam->timeout = 2 * CLOCK_SECOND;
   oam->bytes = 2 * sizeof(uint16_t);
 
-  //LOG_INFO("Generated: P=%d, T=%d, B=%d\n",
-  //         oam->priority , oam->timeout, oam->bytes);
+  LOG_INFO("Generated: P=%d, T=%d, B=%d\n",
+           oam->priority , oam->timeout, oam->bytes);
 
-  memcpy(oam->data, &state, oam->bytes);
+  memcpy(&(oam->data), &state, oam->bytes);
   /* strncpy(oam->data,"Datasource",10); */
 }
 /*---------------------------------------------------------------*/
@@ -207,7 +207,7 @@ priority_sim_init(void)
   /* Uncomment when running in real deployment */
   /* int seed = RTIMER_NOW();
   random_init(seed); */
-  reset();
+  op_init();
 }
 /*---------------------------------------------------------------*/
 #endif /* CONF_QSIM_MODULE */
