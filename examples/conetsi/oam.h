@@ -8,7 +8,7 @@
 #define NTOHS(x)  (x = uip_ntohs(x))
 #define HTONS(x)  (x = uip_htons(x))
 /*---------------------------------------------------------------------------*/
-#define OAM_POLL_INTERVAL   (5 * CLOCK_SECOND)
+#define OAM_POLL_INTERVAL   (50 * CLOCK_SECOND)
 #define MAX_OAM_ENTRIES     10
 /*---------------------------------------------------------------------------*/
 /* Priority range */

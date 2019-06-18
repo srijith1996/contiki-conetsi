@@ -62,19 +62,19 @@ poisson_process(float rate)
     }
   } while(p > 1);
 
-  LOG_DBG("Generated Poisson: %d\n", (k-1));
+ // LOG_DBG("Generated Poisson: %d\n", (k-1));
   return (k-1);   
 }
 /*---------------------------------------------------------------*/
 /*generate exponential distribution*/
-static int
+static float 
 exponential_process(float rate)
 {       
   float x = (random_rand()%RANDOM_RAND_MAX)/(RANDOM_RAND_MAX*1.0);
-  int r = (int)(-log(x)/(1.0 * rate));
+  return (-log(x)/(1.0 * rate));
   
-  LOG_DBG("Generated Exponential: %d\n", r);
-  return r;
+ // LOG_DBG("Generated Exponential: %d\n", r);
+ // return r;
 }
 /*---------------------------------------------------------------*/
 /* Callback functions for ctimers. */
@@ -85,7 +85,7 @@ op()          /* Func for small timer */
   if(time == AT[at_iter]) {
     state++;
     at_iter++;
-  } else if(time == ET[et_iter]) {
+  }if(time == ET[et_iter]) {
     state--;
     et_iter++;
   }
@@ -95,7 +95,7 @@ op()          /* Func for small timer */
 static void
 op_init()     /* Func for big timer */
 {
-  int j = 0, i = 0 ;
+  int i = 0 ;
   double temp;
 
   /* sample total time */
@@ -168,7 +168,7 @@ stop_dummy(void)
 static void
 get_value(struct oam_val *oam)
 {
-  oam->priority = (15 - state);
+  oam->priority = (15 - 2*state);
   oam->timeout = 2 * CLOCK_SECOND;
   oam->bytes = 2 * sizeof(uint16_t);
 

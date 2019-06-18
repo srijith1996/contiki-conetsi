@@ -106,7 +106,6 @@ demand()
          timer_remaining(oam_buf_state.exp_timer),
          oam_buf_state.priority);
   LOG_DBG("Demand: %d\n", demand);
-
   return demand;
 }
 /*---------------------------------------------------------------------------*/
