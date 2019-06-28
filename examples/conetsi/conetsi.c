@@ -257,8 +257,8 @@ get_backoff(uint16_t demand, uint32_t timeout_rticks)
   /* Strictly lesser than time left */
   LOG_DBG("Computing backoff: %d, %lu", demand, timeout_rticks);
 
-  timeout_rticks = ((MAX_DEMAND - demand) * timeout_rticks) /
-                  (BACKOFF_DIV_FACTOR * MAX_DEMAND);
+  timeout_rticks = ((((MAX_DEMAND)/10) - demand) * timeout_rticks) /
+                  (BACKOFF_DIV_FACTOR * ((MAX_DEMAND)/10));
 
   /* Break ties randomly */
   int rand_ticks = (random_rand() % (2 * BACKOFF_RAND_RANGE));

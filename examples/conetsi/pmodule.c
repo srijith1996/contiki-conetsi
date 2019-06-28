@@ -18,12 +18,12 @@
 /* for configuring poissons process
  * parameters can be set manually
  */ 
-#define ARRVL_RATE 5        //IN PER HOUR
-#define SERV_RATE  2
+#define ARRVL_RATE 50.0        //IN PER HOUR
+#define SERV_RATE  30.0
 #define TOTAL_TIME 1
 #define QUEUE_SIZE 14
-#define MM1Q_PRIORITY 10
-#define MAX_PROCS 200     /* Don't make this too high (memory) */
+#define MM1Q_PRIORITY 1 
+#define MAX_PROCS 50     /* Don't make this too high (memory) */
 /*---------------------------------------------------------------*/
 static struct ctimer small;
 static struct ctimer big;
@@ -41,7 +41,7 @@ static int
 poisson_process(float rate)
 { 
   int k = 0;
-  double step = 50;
+  double step = 50.0;
   double p = 1.0, l;
 
   do {
@@ -62,19 +62,19 @@ poisson_process(float rate)
     }
   } while(p > 1);
 
- // LOG_DBG("Generated Poisson: %d\n", (k-1));
+//  LOG_DBG("Generated Poisson: %d\n", (k-1));
   return (k-1);   
 }
 /*---------------------------------------------------------------*/
 /*generate exponential distribution*/
-static float 
+static float
 exponential_process(float rate)
 {       
   float x = (random_rand()%RANDOM_RAND_MAX)/(RANDOM_RAND_MAX*1.0);
-  return (-log(x)/(1.0 * rate));
+  float r = (-log(x)/(1.0 * rate));
   
  // LOG_DBG("Generated Exponential: %d\n", r);
- // return r;
+  return r;
 }
 /*---------------------------------------------------------------*/
 /* Callback functions for ctimers. */
@@ -95,13 +95,15 @@ op()          /* Func for small timer */
 static void
 op_init()     /* Func for big timer */
 {
-  int i = 0 ;
+  int j = 0, i = 0 ;
   double temp;
 
   /* sample total time */
   //printf("Sampling poisson\n");
-  len = poisson_process(ARRVL_RATE) * TOTAL_TIME;
-  time = 0;
+  do {
+      len = poisson_process(ARRVL_RATE) * 10;
+      time = 0;
+  }while(len>50);
 
   /* Setup ctimers */
   ctimer_set(&big, (CLOCK_SECOND * TOTAL_TIME * 3600),
@@ -112,18 +114,19 @@ op_init()     /* Func for big timer */
   /* Populate Inter-Arrival_Times (IAT)*/
   for(i=0;i<len;i++) {
     //printf("Sampling exponential\n");
-    temp = exponential_process(1.0/ARRVL_RATE) * 3600.0; 
+    temp = exponential_process(ARRVL_RATE) * 3600.0; 
     IAT[i] = (i != 0) ? (int)floor(temp) : 0;
   }    
 
   /* Populating Service-Times(ST) (where ST(j)!=0)*/
-  while((j!= len))  {
-    temp = exponential_process(1.0/SERV_RATE) * 3600.0;
-    if(!(int)floor(temp)) {
-      ST[j] = (int)floor(temp);
-      j++; 
+  for (j=0;j<len;j++) {
+    temp = exponential_process(SERV_RATE) * 3600.0;
+    int h = (int)floor(temp);
+    if(h == 0) {
+      continue;
+    }else
+      ST[j] = h;
     }
-  }
 
   /*Get arrival-Times (AT) from IAT starting at t=0
     and initializes Waiting-Timings to 0 */
@@ -153,22 +156,26 @@ reset(void)
 }
 /*---------------------------------------------------------------*/
 static int
-start_dummy(void)
+start(void)
 {
   reset();
   return 0;
 }
 /*---------------------------------------------------------------*/
 static int
-stop_dummy(void)
+stop(void)
 {
   return 0;
 }
 /*---------------------------------------------------------------*/
 static void
 get_value(struct oam_val *oam)
-{
-  oam->priority = (15 - 2*state);
+{ int val =(15 - 2* state);
+  if (val < 1 || val > 15) {
+    oam->priority = 1;
+  }else {
+    oam->priority = (15 -2* state);
+  }
   oam->timeout = 2 * CLOCK_SECOND;
   oam->bytes = 2 * sizeof(uint16_t);
 
@@ -201,8 +208,8 @@ priority_sim_init(void)
                reset,
                get_conf, 
                set_conf, 
-               start_dummy, 
-               stop_dummy);
+               start, 
+               stop);
 
   /* Uncomment when running in real deployment */
   /* int seed = RTIMER_NOW();
