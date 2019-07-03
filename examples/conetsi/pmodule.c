@@ -13,7 +13,7 @@
 #define LOG_MODULE "MM1 Queue"
 #define LOG_LEVEL LOG_LEVEL_QSIM_MOD
 /*---------------------------------------------------------------*/
-#define SAMPLE_TIME_SEC 1
+#define SAMPLE_TIME_SEC 2
 /*---------------------------------------------------------------*/
 /* for configuring poissons process
  * parameters can be set manually
@@ -35,7 +35,7 @@ static int time;
 static int at_iter, et_iter;
 
 /* simulation vars */
-static int len;
+static int num_procs;
 static int IAT[MAX_PROCS], ST[MAX_PROCS],
            AT[MAX_PROCS], ET[MAX_PROCS];
 /*---------------------------------------------------------------*/
@@ -73,8 +73,9 @@ poisson_process(float rate)
 static float
 exponential_process(float rate)
 {       
-  float x = (random_rand()%RANDOM_RAND_MAX)/(RANDOM_RAND_MAX*1.0);
-  float r = (-log(x)/(1.0 * rate));
+  float x = (random_rand() % RANDOM_RAND_MAX) /
+            (RANDOM_RAND_MAX*1.0);
+  float r = -log(x) / (1.0 * rate);
   
  // LOG_DBG("Generated Exponential: %d\n", r);
   return r;
@@ -88,7 +89,8 @@ op()          /* Func for small timer */
   if(time == AT[at_iter]) {
     state++;
     at_iter++;
-  }if(time == ET[et_iter]) {
+  }
+  if(time == ET[et_iter]) {
     state--;
     et_iter++;
   }
@@ -98,15 +100,15 @@ op()          /* Func for small timer */
 static void
 op_init()     /* Func for big timer */
 {
-  int j = 0, i = 0 ;
+  int j = 0, i = 0;
   double temp;
 
   /* sample total time */
   //printf("Sampling poisson\n");
   do {
-      len = poisson_process(ARRVL_RATE) * 10;
-      time = 0;
-  }while(len>50);
+    num_procs = poisson_process(ARRVL_RATE) * 10;
+    time = 0;
+  } while(num_procs > 50);
 
   /* Setup ctimers */
   ctimer_set(&big, (CLOCK_SECOND * TOTAL_TIME * 3600),
@@ -115,36 +117,37 @@ op_init()     /* Func for big timer */
              op, NULL);  
   
   /* Populate Inter-Arrival_Times (IAT)*/
-  for(i=0;i<len;i++) {
+  for(i = 0; i < num_procs; i++) {
     //printf("Sampling exponential\n");
     temp = exponential_process(ARRVL_RATE) * 3600.0; 
-    IAT[i] = (i != 0) ? (int)floor(temp) : 0;
+    IAT[i] = (i != 0) ? (int) floor(temp) : 0;
   }    
 
   /* Populating Service-Times(ST) (where ST(j)!=0)*/
-  for (j=0;j<len;j++) {
+  for (j = 0;j < num_procs; j++) {
     temp = exponential_process(SERV_RATE) * 3600.0;
-    int h = (int)floor(temp);
+    int h = (int) floor(temp);
     if(h == 0) {
       continue;
-    }else
+    } else {
       ST[j] = h;
     }
+  }
 
   /*Get arrival-Times (AT) from IAT starting at t=0
     and initializes Waiting-Timings to 0 */
-  for(i=0;i<len;i++) {
+  for(i = 0; i < num_procs; i++) {
     if(i == 0) {
-      AT[0]=0;
+      AT[0] = 0;
     } else {
-      AT[i]=AT[i-1]+IAT[i];
+      AT[i] = AT[i-1] + IAT[i];
     }
   }
 
   /*Simulation of M/M/1 Queue (i represents current time)*/
-  ET[0]=ST[0];
-  for(i=0;i<len-1;i++) {
-    ET[i+1] = MAX(ET[i],AT[i+1]) + ST[i+1];
+  ET[0] = ST[0];
+  for(i = 0; i < (num_procs - 1); i++) {
+    ET[i+1] = MAX(ET[i], AT[i+1]) + ST[i+1];
   }
 }
 /*---------------------------------------------------------------*/
