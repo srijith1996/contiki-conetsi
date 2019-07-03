@@ -30,6 +30,12 @@
 #define BACKOFF_RAND_RANGE    10
 #define BACKOFF_POLL_INTERVAL 5
 
+#define MAX_BACKOFF_USEC      45000       /* Change this value to
+                                           * hard-limit the backoff
+                                           * time */
+#define MAX_BACKOFF_RTICKS    (((unsigned long) MAX_BACKOFF_USEC * \
+                               RTIMER_SECOND) / 1000000)
+
 #define MAX_PARENT_REQ        5
 #define MAX_EMPTY_HOPS        2
 /*---------------------------------------------------------------------------*/
