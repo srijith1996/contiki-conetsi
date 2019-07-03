@@ -25,6 +25,9 @@
 #define MM1Q_PRIORITY 1 
 #define MAX_PROCS 50     /* Don't make this too high (memory) */
 /*---------------------------------------------------------------*/
+#define QLEN_SIM_MIN_PRIORITY       10
+#define QLEN_SIM_PRIORITY_INC_RATE  2
+/*---------------------------------------------------------------*/
 static struct ctimer small;
 static struct ctimer big;
 static int state;
@@ -170,17 +173,24 @@ stop(void)
 /*---------------------------------------------------------------*/
 static void
 get_value(struct oam_val *oam)
-{ int val =(15 - 2* state);
-  if (val < 1 || val > 15) {
-    oam->priority = 1;
-  }else {
-    oam->priority = (15 -2* state);
+{
+  if(state < 0) {
+    LOG_INFO("Undetermined state reached...\n");
+    /* invalidate this data instance */
+    oam->priority = THRESHOLD_PRIORITY + 1;
+  } else {
+    oam->priority = (QLEN_SIM_MIN_PRIORITY -
+                     QLEN_SIM_PRIORITY_INC_RATE * state);
+
+    /* lower hard-limit by 1 */
+    oam->priority = (oam->priority < 1) ? 1 : oam->priority;
   }
   oam->timeout = 2 * CLOCK_SECOND;
   oam->bytes = 2 * sizeof(uint16_t);
 
   LOG_INFO("Generated: P=%d, T=%d, B=%d\n",
-           oam->priority , oam->timeout, oam->bytes);
+           oam->priority, oam->timeout, oam->bytes);
+  LOG_INFO("Queue length: inst=%d", state);
 
   memcpy(&(oam->data), &state, oam->bytes);
   /* strncpy(oam->data,"Datasource",10); */
