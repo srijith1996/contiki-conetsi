@@ -8,7 +8,7 @@
 #define NTOHS(x)  (x = uip_ntohs(x))
 #define HTONS(x)  (x = uip_htons(x))
 /*---------------------------------------------------------------------------*/
-#define OAM_POLL_INTERVAL   (5 * CLOCK_SECOND)
+#define OAM_POLL_INTERVAL   (1 * CLOCK_SECOND)
 #define MAX_OAM_ENTRIES     10
 /*---------------------------------------------------------------------------*/
 /* Priority range */
@@ -28,7 +28,8 @@
 #define global_priority(...) global_priority_lin(__VA_ARGS__)
 #endif /* CONF_PRIORITY */
 /*---------------------------------------------------------------------------*/
-#define DEMAND_FACTOR    (CLOCK_SECOND / LOWEST_PRIORITY)
+#define df                       10
+#define DEMAND_FACTOR    ((df * CLOCK_SECOND) / LOWEST_PRIORITY)
 #define THRESHOLD_PKT_SIZE       90
 #define THRESHOLD_TIMEOUT_MSEC   100
 #define THRESHOLD_TIMEOUT_TICKS ((THRESHOLD_TIMEOUT_MSEC * CLOCK_SECOND)/1000)
@@ -39,7 +40,7 @@
                         * THRESHOLD_PKT_SIZE                       \
                         * (LOWEST_PRIORITY - HIGHEST_PRIORITY))    \
                         / THRESHOLD_TIMEOUT_TICKS)
-#define THRESHOLD_DEMAND   (MAX_DEMAND / 200)
+#define THRESHOLD_DEMAND   (MAX_DEMAND / 130)
 /* #define THRESHOLD_DEMAND 0 */
 /*---------------------------------------------------------------------------*/
 struct oam_stats {

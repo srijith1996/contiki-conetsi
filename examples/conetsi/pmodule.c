@@ -25,7 +25,7 @@
 #define MM1Q_PRIORITY 1 
 #define MAX_PROCS 50     /* Don't make this too high (memory) */
 /*---------------------------------------------------------------*/
-#define QLEN_SIM_MIN_PRIORITY       10
+#define QLEN_SIM_MIN_PRIORITY      15 
 #define QLEN_SIM_PRIORITY_INC_RATE  2
 /*---------------------------------------------------------------*/
 static struct ctimer small;
