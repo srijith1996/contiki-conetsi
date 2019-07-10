@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = conetsi conetsi-server oam pmodule dummy-module
+CONTIKI_PROJECT = conetsi  normal-server oam pmodule dummy-module
 all: $(CONTIKI_PROJECT)
 
 CONTIKI=../..

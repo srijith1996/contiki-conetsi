@@ -29,8 +29,12 @@ static int count, iter, indexer;
 static struct etimer oam_poll_timer;
 
 extern process_event_t genesis_event;
-
+#if CONF_CONETSI
 PROCESS_NAME(conetsi_server_process);
+#endif
+#if CONF_NORMAL
+PROCESS_NAME(normal_server_process);
+#endif
 PROCESS(oam_collect_process, "OAM Process");
 /*---------------------------------------------------------------------------*/
 /*
@@ -404,7 +408,13 @@ PROCESS_THREAD(oam_collect_process, ev, data)
       LOG_INFO("Waking CoNetSI");
       LOG_DBG_(" (Threshold: %d, MAX: %d)", THRESHOLD_DEMAND, MAX_DEMAND);
       LOG_INFO_("\n");
+      #if CONF_CONETSI
+      dneknfeknfl;
       process_post(&conetsi_server_process, genesis_event, &oam_buf_state);
+      #endif
+      #if CONF_NORMAL
+      process_post(&normal_server_process, genesis_event, &oam_buf_state);
+      #endif
     }
   }
   PROCESS_END();

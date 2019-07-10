@@ -11,14 +11,18 @@
 #define LOG_LEVEL LOG_LEVEL_CONETSI
 /*---------------------------------------------------------------------------*/
 char conetsi_buf[THRESHOLD_PKT_SIZE];
-static int child_ct;
+//static int child_ct;
 
-struct conetsi_node me;
+//struct conetsi_node me;
 static struct simple_udp_connection nsi_conn;
-static uip_ipaddr_t mcast_addr;
+//static uip_ipaddr_t mcast_addr;
 static uip_ipaddr_t host_addr;
 /*---------------------------------------------------------------------------*/
-void
+void reg_host()
+{
+   uip_ip6addr(&host_addr, 0xfd00, 0, 0, 0, 0, 0, 0, 0x0001);
+}
+/*void
 reg_mcast_addr()
 {
   uip_ip6addr(&host_addr, 0xfd00, 0, 0, 0, 0, 0, 0, 0x0001);
@@ -27,16 +31,16 @@ reg_mcast_addr()
 
   simple_udp_register(&nsi_conn, UDP_SERVER_PORT, NULL,
                       UDP_CLIENT_PORT, udp_rx_callback);
-}
+}*/
 /*---------------------------------------------------------------------------*/
-uint32_t
+/*uint32_t
 send_demand_adv(struct parent_details *parent)
 {
   uint64_t delay, timeout;
   struct conetsi_pkt *buf = (void *) &conetsi_buf;
   struct nsi_demand *demand_buf = (void *) &(buf->data);
 
-  /* These functions are defined in the OAM process */
+  * These functions are defined in the OAM process *
   buf->type = TYPE_DEMAND_ADVERTISEMENT;
   demand_buf->demand = demand();
   timeout = ticks2rticks(get_nsi_timeout());
@@ -56,7 +60,7 @@ send_demand_adv(struct parent_details *parent)
       timeout = parent->timeout;
     }
   } else {
-    /* copy host address */
+    * copy host address *
     uip_ipaddr_copy(&(demand_buf->parent_addr), &host_addr);
   }
 
@@ -68,7 +72,7 @@ send_demand_adv(struct parent_details *parent)
   LOG_INFO_6ADDR(&mcast_addr);
   LOG_INFO_("\n");
 
-  /* subtract predicted delay incurred in TX */
+  * subtract predicted delay incurred in TX *
   delay = sicslowpan_avg_pertx_delay()
           * sicslowpan_queue_len()
           * sicslowpan_avg_tx_count();
@@ -84,22 +88,22 @@ send_demand_adv(struct parent_details *parent)
   LOG_DBG("---------------------------\n");
   HTONS(demand_buf->time_left);
 
-  /* WARN: comment this out if not necessary */
-  /* This printing loop will introduce delay */
-  /*
+  * WARN: comment this out if not necessary *
+  * This printing loop will introduce delay *
+  *
   int i;
   LOG_DBG("Demand buffer ");
   for(i=0; i<SIZE_DA; i++) {
     LOG_DBG_("%02x:", *((uint8_t *)&conetsi_buf + i));
   }
   LOG_DBG_("\n");
-  */
+  *
 
   simple_udp_sendto(&nsi_conn, &conetsi_buf, SIZE_DA + 1, &mcast_addr);
 
   return (timeout + delay);
 }
-/*---------------------------------------------------------------------------*/
+*---------------------------------------------------------------------------*
 int
 fwd_nsi(const uint8_t *buf, int buf_len)
 {
@@ -111,7 +115,7 @@ fwd_nsi(const uint8_t *buf, int buf_len)
                     buf_len - sizeof(uip_ipaddr_t), &host_addr);
   return buf_len - sizeof(uip_ipaddr_t);
 }
-/*---------------------------------------------------------------------------*/
+*---------------------------------------------------------------------------*/
 int
 send_nsi(const uint8_t *buf, int buf_len)
 {
@@ -123,15 +127,15 @@ send_nsi(const uint8_t *buf, int buf_len)
   uint8_t buf_data_start = sizeof(uip_ipaddr_t) + 1;
 
   LOG_INFO("Sending NSI to ");
-  LOG_INFO_6ADDR(&(me.parent_node));
+//  LOG_INFO_6ADDR(&(me.parent_node));
   LOG_INFO_("\n");
 
-  /* copy type information */
+  /* copy type information *
   tmp = TYPE_NSI;
   memcpy(&conetsi_buf, &tmp, 1);
   add_len += 1;
 
-  /* copy receiver parent address only if I'm not genesis */
+  * copy receiver parent address only if I'm not genesis *
   if(!uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {
     struct nsi_forward *nsi_info = (struct nsi_forward *)(conetsi_buf + 1);
     uip_ipaddr_copy(&(nsi_info->to), &(me.parent_node));
@@ -143,15 +147,15 @@ send_nsi(const uint8_t *buf, int buf_len)
            buf + buf_data_start,
            buf_len - buf_data_start);
 
-    /* increment hop count in packet */
+    * increment hop count in packet *
     tmp = *((uint8_t *)(conetsi_buf + add_len)) + 1;
     LOG_INFO("Number of hops: %d\n", tmp);
-  } else {
-    /* if the buf is empty, I must initiate the NSI packet */
+  } else {`
+    * if the buf is empty, I must initiate the NSI packet */
     tmp = 1;
     buf_len = 1;
     buf_data_start = 0;
-  }
+  //}
 
   memcpy(conetsi_buf + add_len, &tmp, 1);
   add_len += buf_len - buf_data_start;
@@ -163,12 +167,13 @@ send_nsi(const uint8_t *buf, int buf_len)
     /* Add my NSI data */
     int tmp_strlen = oam_string(conetsi_buf + add_len);
     add_len += tmp_strlen;
+  }  
 
     /* skip adding if I initiate and don't have data */
-  } else if(buf == NULL) {
+  /*} else if(buf == NULL) {
     LOG_DBG("Refraining from adding NULL NSI\n");
     return 0;
-  }
+  }*/
 
   int i;
   LOG_DBG("Length of NSI: %d\n", add_len);
@@ -179,16 +184,16 @@ send_nsi(const uint8_t *buf, int buf_len)
   LOG_DBG_("\n");
 
   /* Send NSI to parent */
-  if(uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {
+ // if(uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {
     simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &host_addr);
-  } else {
-    simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &mcast_addr);
-  }
+ // } else {
+   // simple_udp_sendto(&nsi_conn, &conetsi_buf, add_len, &mcast_addr);
+  //}
 
   return add_len;
 }
 /*---------------------------------------------------------------------------*/
-void
+/*void
 set_parent(const uip_ipaddr_t *p)
 {
   if(p == NULL) {
@@ -196,21 +201,21 @@ set_parent(const uip_ipaddr_t *p)
   } else {
     uip_ipaddr_copy(&(me.parent_node), p);
   }
-}
+}*/
 /*---------------------------------------------------------------------------*/
-uip_ipaddr_t *
+/*uip_ipaddr_t *
 get_parent()
 {
   return &(me.parent_node);
-}
+}*/
 /*---------------------------------------------------------------------------*/
-int
+/*int
 get_childct()
 {
   return child_ct;
-}
+}*/
 /*---------------------------------------------------------------------------*/
-void
+/*void
 add_child(const uip_ipaddr_t *c)
 {
   if(child_ct >= MAX_CHILDREN) {
@@ -218,9 +223,9 @@ add_child(const uip_ipaddr_t *c)
     return;
   }
   uip_ipaddr_copy(&(me.child_node[child_ct++]), c);
-}
+}*/
 /*---------------------------------------------------------------------------*/
-void
+/*void
 rm_child(const uip_ipaddr_t *c)
 {
   int i;
@@ -244,29 +249,29 @@ rm_child(const uip_ipaddr_t *c)
     }
   }
 }
-/*---------------------------------------------------------------------------*/
-int
+*---------------------------------------------------------------------------*/
+/*int
 child_count(void)
 {
   return child_ct;
 }
-/*---------------------------------------------------------------------------*/
-uint32_t
+*---------------------------------------------------------------------------*/
+/*uint32_t
 get_backoff(uint16_t demand, uint32_t timeout_rticks)
 {
-  /* Strictly lesser than time left */
+  * Strictly lesser than time left *
   LOG_DBG("Computing backoff: %d, %lu", demand, timeout_rticks);
 
   timeout_rticks = ((MAX_DEMAND - demand) * timeout_rticks) /
                   (BACKOFF_DIV_FACTOR * MAX_DEMAND);
 
-  /* Break ties randomly */
+  * Break ties randomly *
   int rand_ticks = (random_rand() % (2 * BACKOFF_RAND_RANGE));
 
   if(timeout_rticks <= 0) {
     timeout_rticks = rand_ticks;
   } else {
-    rand_ticks -= BACKOFF_RAND_RANGE;  /* range [-RAND_RANGE, RAND_RANGE-1] */
+    rand_ticks -= BACKOFF_RAND_RANGE;  * range [-RAND_RANGE, RAND_RANGE-1] *
     timeout_rticks += rand_ticks;
   }
 
@@ -276,4 +281,4 @@ get_backoff(uint16_t demand, uint32_t timeout_rticks)
   return (timeout_rticks < MAX_BACKOFF_RTICKS) ?
           timeout_rticks : MAX_BACKOFF_RTICKS;
 }
-/*---------------------------------------------------------------------------*/
+*---------------------------------------------------------------------------*/
