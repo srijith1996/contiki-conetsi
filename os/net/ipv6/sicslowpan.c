@@ -60,6 +60,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 
 #include "contiki.h"
 #include "dev/watchdog.h"
@@ -231,7 +232,7 @@ struct tx_delay_struct {
 #define TX_DELAY_ARR_SIZE 20
 static struct tx_delay_struct tx_delay_arr[TX_DELAY_ARR_SIZE];
 static uint8_t idx;
-uint8_t prev_transmissions;
+uint8_t prev_transmissions;   /* Updated as extern in CSMA */
 
 /* ----------------------------------------------------------------- */
 /* Support for reassembling multiple packets                         */
@@ -1559,6 +1560,8 @@ packet_sent(void *ptr, int status, int transmissions)
   if(linkaddr_cmp(dest, &linkaddr_null)) {
     return;
   }
+
+  printf("# of transmissions: %d\n", transmissions);
 
   /* Update neighbor link statistics */
   link_stats_packet_sent(dest, status, transmissions);

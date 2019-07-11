@@ -11,7 +11,7 @@
 #define LOG_LEVEL_CSMA_MGMT_QLEN LOG_LEVEL_DBG
 #define LOG_LEVEL_CSMA_MGMT_RTX LOG_LEVEL_DBG
 
-#define LOG_CONF_LEVEL_6LOWPAN LOG_LEVEL_NONE
+#define LOG_CONF_LEVEL_6LOWPAN LOG_LEVEL_INFO
 /*---------------------------------------------------------------------------*/
 #define CONF_DUMMY     0
 #define CONF_QSIM_MODULE 1    
