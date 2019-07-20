@@ -21,6 +21,8 @@ static uip_ipaddr_t host_addr;
 void reg_host()
 {
    uip_ip6addr(&host_addr, 0xfd00, 0, 0, 0, 0, 0, 0, 0x0001);
+   simple_udp_register(&nsi_conn, UDP_SERVER_PORT, NULL,
+                       UDP_CLIENT_PORT, NULL);
 }
 /*void
 reg_mcast_addr()
@@ -130,10 +132,10 @@ send_nsi(const uint8_t *buf, int buf_len)
 //  LOG_INFO_6ADDR(&(me.parent_node));
   LOG_INFO_("\n");
 
-  /* copy type information *
   tmp = TYPE_NSI;
   memcpy(&conetsi_buf, &tmp, 1);
   add_len += 1;
+  /* copy type information *
 
   * copy receiver parent address only if I'm not genesis *
   if(!uip_ipaddr_cmp(&(me.parent_node), &host_addr)) {

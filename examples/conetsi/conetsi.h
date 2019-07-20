@@ -104,7 +104,7 @@ int fwd_nsi(const uint8_t *buf, int buf_len);
 int send_nsi(const uint8_t *buf, int buf_len);
 
 /* Register Multicast address for CoNeStI */
-void reg_mcast_addr();
+void reg_host();
 
 /* Control message functions */
 /* Handshake step 1: Send multicast demand advertisement */

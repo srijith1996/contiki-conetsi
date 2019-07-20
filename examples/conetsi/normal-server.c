@@ -15,7 +15,6 @@
 #define LOG_LEVEL LOG_LEVEL_NORMAL
 /*---------------------------------------------------------------------------*/
 process_event_t genesis_event;
-extern void reg_host();
 /* for notifications from UIP */
 struct uip_ds6_notification uip_notification;
 
